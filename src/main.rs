@@ -3,18 +3,12 @@ use clap::Parser;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// line number to extract
-    #[arg(short = 'n', long)]
-    line: usize,
+mod cli;
 
-    file: String,
-}
+use cli::Cli;
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+    let args = Cli::parse();
 
     let file =
         File::open(&args.file).with_context(|| format!("Failed to open file `{}`", args.file))?;
