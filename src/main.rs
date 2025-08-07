@@ -16,7 +16,6 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    // TODO: handle ~ and symbolic links
     let file =
         File::open(&args.file).with_context(|| format!("Failed to open file `{}`", args.file))?;
     let file = BufReader::new(file);
