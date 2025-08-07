@@ -2,10 +2,9 @@
 
 ## Phase 1: Errors
 
-- [ ] if line is out of bound, print: `error: line X not found`.
-- [ ] if the file is binary `error: non-text file`.
-- [ ] make sure -n=0 throws an error.
-
+- [x] if line is out of bound, print: `error: line X not found`.
+- [x] if the file is binary `error: non-text file`, unless a flag is passed, like in `bat`.
+- [x] make sure -n=0 throws an error.
 
 ## Phase 2: Line Selection
 
