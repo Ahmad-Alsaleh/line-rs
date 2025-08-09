@@ -32,22 +32,32 @@ fn main() -> Result<()> {
 fn open_file(path: &Path) -> Result<File> {
     let file =
         File::open(path).with_context(|| format!("Failed to open file `{}`", path.display()))?;
-    if !file
-        .metadata()
-        .context("Failed to extract file metadata")?
-        .is_file()
-    {
-        anyhow::bail!("{} is not a file", path.display());
+
+    match file.metadata() {
+        Ok(metadata) => {
+            if !metadata.is_file() {
+                anyhow::bail!("{} is not a file", path.display());
+            }
+        }
+        Err(error) => {
+            // TODO: make a `--quiet` flag to suppress warning
+            // TODO: color the word `Warning` in yellow
+            eprintln!(
+                "Warning: couldn't determine if {} is a file or a directory: {error}",
+                path.display()
+            );
+        }
     }
+
     Ok(file)
 }
 
 fn read_line(line: usize, mut line_reader: LineReader) -> Result<Vec<u8>> {
     let mut buf = Vec::new();
     let line_in_range = line_reader
-        // subtract one since the cli user uses one-index and the code uses zero-index
+        // subtracting one since the cli user uses one-index and the code uses zero-index
         .read_specific_line(&mut buf, line - 1)
-        .with_context(|| format!("Failed to read line {line}"))?;
+        .with_context(|| format!("Failed to read line number {line}"))?;
 
     if !line_in_range {
         anyhow::bail!(
