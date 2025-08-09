@@ -3,7 +3,7 @@ use crate::line_reader::LineReader;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs::File;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 mod cli;
@@ -17,7 +17,22 @@ fn main() -> Result<()> {
     }
 
     let file = open_file(&args.file)?;
-    let line_reader = LineReader::new(file).context("Failed to create file reader")?;
+    let mut file = BufReader::new(file);
+
+    if !args.allow_binary_files {
+        let is_binary = is_binary(&mut file).with_context(|| {
+            format!("Failed to determine if `{}` is binary", args.file.display())
+        })?;
+
+        if is_binary {
+            anyhow::bail!(
+                "`{}` is a binrary file. Use `--allow-binary-files` to suppress this error",
+                args.file.display()
+            );
+        }
+    }
+
+    let line_reader = LineReader::new(file);
 
     let line = read_line(args.line, line_reader)?;
 
@@ -36,14 +51,14 @@ fn open_file(path: &Path) -> Result<File> {
     match file.metadata() {
         Ok(metadata) => {
             if !metadata.is_file() {
-                anyhow::bail!("{} is not a file", path.display());
+                anyhow::bail!("`{}` is not a file", path.display());
             }
         }
         Err(error) => {
             // TODO: make a `--quiet` flag to suppress warning
             // TODO: color the word `Warning` in yellow
             eprintln!(
-                "Warning: couldn't determine if {} is a file or a directory: {error}",
+                "Warning: couldn't determine if `{}` is a file or a directory: {error}",
                 path.display()
             );
         }
@@ -61,10 +76,20 @@ fn read_line(line: usize, mut line_reader: LineReader) -> Result<Vec<u8>> {
 
     if !line_in_range {
         anyhow::bail!(
-            "Line {line} is out of bound, file has {} line only",
+            "Line {line} is out of bound, file has {} line(s) only",
             line_reader.current_line
         );
     }
 
     Ok(buf)
+}
+
+fn is_binary(file: &mut BufReader<File>) -> Result<bool> {
+    let mut buf = [0; 64];
+    let n = file.read(&mut buf)?;
+    let buf = &buf[..n];
+
+    file.rewind()?;
+
+    Ok(content_inspector::inspect(buf).is_binary())
 }

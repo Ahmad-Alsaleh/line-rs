@@ -1,32 +1,18 @@
-use anyhow::{Context, Result};
-use content_inspector::ContentType;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Seek};
+use std::io::{BufRead, BufReader};
 
 /// Reads lines of a file in an efficeint way.
 pub(crate) struct LineReader {
     reader: BufReader<File>,
     pub(crate) current_line: usize,
-    content_type: ContentType,
 }
 
 impl LineReader {
-    pub(crate) fn new(file: File) -> Result<Self> {
-        let mut reader = BufReader::new(file);
-
-        let mut first_line = Vec::new();
-        reader
-            .read_until(b'\n', &mut first_line)
-            .context("Failed to read first line from file")?;
-        reader.rewind().context("Failed to rewind file")?;
-
-        let content_type = content_inspector::inspect(&first_line);
-
-        Ok(Self {
-            reader,
+    pub(crate) fn new(file: BufReader<File>) -> Self {
+        Self {
+            reader: file,
             current_line: 0,
-            content_type,
-        })
+        }
     }
 
     /// Returns `false` if no bytes were read and `true` otherwise.
