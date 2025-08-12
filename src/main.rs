@@ -3,7 +3,7 @@ use crate::line_reader::LineReader;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, Write};
+use std::io::{BufReader, Read, Seek, Write};
 use std::path::Path;
 
 mod cli;
@@ -58,7 +58,7 @@ fn open_file(path: &Path) -> Result<File> {
             // TODO: make a `--quiet` flag to suppress warning
             // TODO: color the word `Warning` in yellow
             eprintln!(
-                "Warning: couldn't determine if `{}` is a file or a directory: {error}",
+                "Warning: couldn't determine if `{}` is a file or a directory from its metadata, treating it as a file: {error}",
                 path.display()
             );
         }
