@@ -1,39 +1,46 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Seek},
+};
+
+use anyhow::Context;
 
 /// Reads lines of a file in an efficeint way.
 pub(crate) struct LineReader {
     reader: BufReader<File>,
-    pub(crate) current_line: usize,
+    pub(crate) n_lines: usize,
+    current_line: usize,
 }
 
 impl LineReader {
-    pub(crate) fn new(file: BufReader<File>) -> Self {
-        Self {
-            reader: file,
+    pub(crate) fn new(file: File) -> anyhow::Result<Self> {
+        let mut reader = BufReader::new(file);
+        let n_lines = Self::count_lines(&mut reader).context("Failed to count number of lines")?;
+        Ok(Self {
+            reader,
+            n_lines,
             current_line: 0,
-        }
+        })
     }
 
     /// Returns `false` if no bytes were read and `true` otherwise.
-    fn read_next_line(&mut self, buf: &mut Vec<u8>) -> anyhow::Result<bool> {
+    fn read_next_line(&mut self, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         let n = self.reader.read_until(b'\n', buf)?;
-        if n == 0 {
-            return Ok(false);
+        if n != 0 {
+            self.current_line += 1;
         }
-        self.current_line += 1;
-        Ok(true)
+        Ok(())
     }
 
     /// Skips `n` lines.
     /// Returns `false` if reached EOF before skipping `n` lines.
-    fn skip_lines(&mut self, n: usize) -> anyhow::Result<bool> {
+    fn skip_lines(&mut self, n: usize) -> anyhow::Result<()> {
         let mut i = 0;
         while i < n && self.reader.skip_until(b'\n')? > 0 {
             i += 1;
         }
         self.current_line += i;
-        Ok(i == n)
+        Ok(())
     }
 
     /// `lines_num` should be more than `self.current_line`.
@@ -43,12 +50,22 @@ impl LineReader {
         &mut self,
         buf: &mut Vec<u8>,
         line_num: usize,
-    ) -> anyhow::Result<bool> {
-        if line_num != self.current_line && // avoid attempting to skip lines if there is no need
-               !self.skip_lines(line_num - self.current_line)?
-        {
-            return Ok(false);
+    ) -> anyhow::Result<()> {
+        // avoid attempting to skip lines if there is no need
+        if line_num != self.current_line {
+            self.skip_lines(line_num - self.current_line)?;
         }
         self.read_next_line(buf)
+    }
+
+    /// Note: this funciton rewinds to the begginsing of the file after doing the necesary
+    /// operatoins, i.e., it assumes no lines were read from the file before calling this function
+    pub(crate) fn count_lines(reader: &mut BufReader<File>) -> anyhow::Result<usize> {
+        let mut n_lines = 0;
+        while reader.skip_until(b'\n')? > 0 {
+            n_lines += 1;
+        }
+        reader.rewind()?;
+        Ok(n_lines)
     }
 }

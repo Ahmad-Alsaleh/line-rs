@@ -5,8 +5,8 @@ use std::path::PathBuf;
 #[command(version, about="Extract lines without hacks", author, long_about = None)]
 pub(crate) struct Cli {
     /// Line number to extract
-    #[arg(short = 'n', long)]
-    pub(crate) line: usize,
+    #[arg(short = 'n', long = "line")]
+    pub(crate) line_num: isize,
     /// File to extract line(s) from. Use a dash ('-') or no argument to read from standard input
     pub(crate) file: PathBuf,
     /// Treat binary files as text files

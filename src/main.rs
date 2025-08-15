@@ -3,7 +3,7 @@ use crate::line_reader::LineReader;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, Write};
+use std::io::{Read, Seek, Write};
 use std::path::Path;
 
 mod cli;
@@ -12,12 +12,11 @@ mod line_reader;
 fn main() -> Result<()> {
     let args = Cli::parse();
 
-    if args.line == 0 {
+    if args.line_num == 0 {
         anyhow::bail!("Line number can't be zero");
     }
 
-    let file = open_file(&args.file)?;
-    let mut file = BufReader::new(file);
+    let mut file = open_file(&args.file)?;
 
     if !args.allow_binary_files {
         let is_binary = is_binary(&mut file).with_context(|| {
@@ -32,9 +31,24 @@ fn main() -> Result<()> {
         }
     }
 
-    let line_reader = LineReader::new(file);
+    let line_reader = LineReader::new(file)?;
 
-    let line = read_line(args.line, line_reader)?;
+    if args.line_num.unsigned_abs() > line_reader.n_lines {
+        anyhow::bail!(
+            "Line {} is out of bound, input has {} line(s) only",
+            args.line_num,
+            line_reader.n_lines
+        );
+    }
+
+    let line_num = if args.line_num < 0 {
+        line_reader.n_lines - -args.line_num as usize
+    } else {
+        // subtracte one to convert to zero-index
+        args.line_num as usize - 1
+    };
+
+    let line = read_line(line_num, line_reader)?;
 
     std::io::stdout()
         .lock()
@@ -67,24 +81,18 @@ fn open_file(path: &Path) -> Result<File> {
     Ok(file)
 }
 
-fn read_line(line: usize, mut line_reader: LineReader) -> Result<Vec<u8>> {
-    let mut buf = Vec::new();
-    let line_in_range = line_reader
-        // subtracting one since the cli user uses one-index and the code uses zero-index
-        .read_specific_line(&mut buf, line - 1)
-        .with_context(|| format!("Failed to read line number {line}"))?;
-
-    if !line_in_range {
-        anyhow::bail!(
-            "Line {line} is out of bound, file has {} line(s) only",
-            line_reader.current_line
-        );
-    }
-
-    Ok(buf)
+/// Note: `line_num` should be zero-indexed
+fn read_line(line_num: usize, mut line_reader: LineReader) -> Result<Vec<u8>> {
+    let mut line_buf = Vec::new();
+    line_reader
+        .read_specific_line(&mut line_buf, line_num)
+        .with_context(|| format!("Failed to read line number {line_num}"))?;
+    Ok(line_buf)
 }
 
-fn is_binary(file: &mut BufReader<File>) -> Result<bool> {
+/// Note: this funciton rewinds to the begginsing of the file after doing the necesary
+/// operatoins, i.e., it assumes no lines were read from the file before calling this function
+fn is_binary(file: &mut File) -> Result<bool> {
     let mut buf = [0; 64];
     let n = file.read(&mut buf)?;
     let buf = &buf[..n];
