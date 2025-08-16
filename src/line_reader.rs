@@ -1,26 +1,20 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Seek},
+    io::{BufRead, BufReader},
 };
-
-use anyhow::Context;
 
 /// Reads lines of a file in an efficeint way.
 pub(crate) struct LineReader {
     reader: BufReader<File>,
-    pub(crate) n_lines: usize,
     current_line: usize,
 }
 
 impl LineReader {
-    pub(crate) fn new(file: File) -> anyhow::Result<Self> {
-        let mut reader = BufReader::new(file);
-        let n_lines = Self::count_lines(&mut reader).context("Failed to count number of lines")?;
-        Ok(Self {
-            reader,
-            n_lines,
+    pub(crate) fn new(file: BufReader<File>) -> Self {
+        Self {
+            reader: file,
             current_line: 0,
-        })
+        }
     }
 
     /// Returns `false` if no bytes were read and `true` otherwise.
@@ -56,16 +50,5 @@ impl LineReader {
             self.skip_lines(line_num - self.current_line)?;
         }
         self.read_next_line(buf)
-    }
-
-    /// Note: this funciton rewinds to the begginsing of the file after doing the necesary
-    /// operatoins, i.e., it assumes no lines were read from the file before calling this function
-    pub(crate) fn count_lines(reader: &mut BufReader<File>) -> anyhow::Result<usize> {
-        let mut n_lines = 0;
-        while reader.skip_until(b'\n')? > 0 {
-            n_lines += 1;
-        }
-        reader.rewind()?;
-        Ok(n_lines)
     }
 }
