@@ -57,15 +57,4 @@ impl LineReader {
         }
         self.read_next_line(buf)
     }
-
-    /// Note: this funciton rewinds to the begginsing of the file after doing the necesary
-    /// operatoins, i.e., it assumes no lines were read from the file before calling this function
-    pub(crate) fn count_lines(reader: &mut BufReader<File>) -> anyhow::Result<usize> {
-        let mut n_lines = 0;
-        while reader.skip_until(b'\n')? > 0 {
-            n_lines += 1;
-        }
-        reader.rewind()?;
-        Ok(n_lines)
-    }
 }

@@ -3,7 +3,7 @@ use crate::line_reader::LineReader;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs::File;
-use std::io::{Read, Seek, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 mod cli;
@@ -17,6 +17,7 @@ fn main() -> Result<()> {
     }
 
     let mut file = open_file(&args.file)?;
+    let file = BufReader::new(file);
 
     if !args.allow_binary_files {
         let is_binary = is_binary(&mut file).with_context(|| {
@@ -31,13 +32,13 @@ fn main() -> Result<()> {
         }
     }
 
-    let line_reader = LineReader::new(file)?;
+    let n_lines = count_lines(&mut file)?;
 
-    if args.line_num.unsigned_abs() > line_reader.n_lines {
+    if args.line_num.unsigned_abs() > n_lines {
         anyhow::bail!(
-            "Line {} is out of bound, input has {} line(s) only",
+            "Line {} is out of bound, input has {} line(s)",
             args.line_num,
-            line_reader.n_lines
+            n_lines
         );
     }
 
@@ -47,6 +48,8 @@ fn main() -> Result<()> {
         // subtracte one to convert to zero-index
         args.line_num as usize - 1
     };
+
+    let line_reader = LineReader::new(file)?;
 
     let line = read_line(line_num, line_reader)?;
 
@@ -92,7 +95,7 @@ fn read_line(line_num: usize, mut line_reader: LineReader) -> Result<Vec<u8>> {
 
 /// Note: this funciton rewinds to the begginsing of the file after doing the necesary
 /// operatoins, i.e., it assumes no lines were read from the file before calling this function
-fn is_binary(file: &mut File) -> Result<bool> {
+fn is_binary(file: &mut BufReader<File>) -> Result<bool> {
     let mut buf = [0; 64];
     let n = file.read(&mut buf)?;
     let buf = &buf[..n];
@@ -100,4 +103,15 @@ fn is_binary(file: &mut File) -> Result<bool> {
     file.rewind()?;
 
     Ok(content_inspector::inspect(buf).is_binary())
+}
+
+/// Note: this funciton rewinds to the begginsing of the file after doing the necesary
+/// operatoins, i.e., it assumes no lines were read from the file before calling this function
+pub(crate) fn count_lines(reader: &mut BufReader<File>) -> anyhow::Result<usize> {
+    let mut n_lines = 0;
+    while reader.skip_until(b'\n')? > 0 {
+        n_lines += 1;
+    }
+    reader.rewind()?;
+    Ok(n_lines)
 }
