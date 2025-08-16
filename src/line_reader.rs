@@ -14,7 +14,6 @@ impl<R: BufRead> LineReader<R> {
         }
     }
 
-    /// Returns `false` if no bytes were read and `true` otherwise.
     fn read_next_line(&mut self, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         let n = self.reader.read_until(b'\n', buf)?;
         if n != 0 {
@@ -24,7 +23,6 @@ impl<R: BufRead> LineReader<R> {
     }
 
     /// Skips `n` lines.
-    /// Returns `false` if reached EOF before skipping `n` lines.
     fn skip_lines(&mut self, n: usize) -> anyhow::Result<()> {
         let mut i = 0;
         while i < n && self.reader.skip_until(b'\n')? > 0 {
@@ -36,7 +34,6 @@ impl<R: BufRead> LineReader<R> {
 
     /// `lines_num` should be more than `self.current_line`.
     /// `line_num` is zero-indexed.
-    /// Returns `false` if `line_num` is beyod EOF and `true` otherwise.
     pub(crate) fn read_specific_line(
         &mut self,
         buf: &mut Vec<u8>,
