@@ -9,3 +9,6 @@ description = "Extract lines from files without hacks!"
 anyhow = "1.0.98"
 clap = { version = "4.5.42", features = ["derive"] }
 content_inspector = "0.2.4"
+
+[dev-dependencies]
+tempfile = "3.20.0"
