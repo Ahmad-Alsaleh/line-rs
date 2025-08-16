@@ -88,7 +88,7 @@ fn open_file(path: &Path) -> Result<File> {
 }
 
 /// Note: `line_num` should be zero-indexed
-fn read_line(line_num: usize, mut line_reader: LineReader) -> Result<Vec<u8>> {
+fn read_line<R: BufRead>(line_num: usize, mut line_reader: LineReader<R>) -> Result<Vec<u8>> {
     let mut line_buf = Vec::new();
     line_reader
         .read_specific_line(&mut line_buf, line_num)

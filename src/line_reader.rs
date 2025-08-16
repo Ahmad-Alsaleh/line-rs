@@ -1,18 +1,15 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-};
+use std::io::BufRead;
 
 /// Reads lines of a file in an efficeint way.
-pub(crate) struct LineReader {
-    reader: BufReader<File>,
+pub(crate) struct LineReader<R> {
+    reader: R,
     current_line: usize,
 }
 
-impl LineReader {
-    pub(crate) fn new(file: BufReader<File>) -> Self {
+impl<R: BufRead> LineReader<R> {
+    pub(crate) fn new(reader: R) -> Self {
         Self {
-            reader: file,
+            reader,
             current_line: 0,
         }
     }
