@@ -20,15 +20,16 @@ fn main() -> Result<()> {
     let mut file = BufReader::new(file);
 
     if !args.allow_binary_files {
-        let is_binary = is_binary(&mut file).with_context(|| {
-            format!("Failed to determine if `{}` is binary", args.file.display())
-        })?;
-
-        if is_binary {
-            anyhow::bail!(
+        match is_binary(&mut file) {
+            Ok(true) => anyhow::bail!(
                 "`{}` is a binrary file. Use `--allow-binary-files` to suppress this error",
                 args.file.display()
-            );
+            ),
+            Ok(false) => {}
+            Err(err) => eprintln!(
+                "Warning: Failed to determine if `{}` is binary. Use `--allow-binary-files` to suppress this warning. Reason: {err}",
+                args.file.display()
+            ),
         }
     }
 
