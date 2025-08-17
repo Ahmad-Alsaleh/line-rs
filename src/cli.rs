@@ -61,10 +61,7 @@ fn line_num_parser(s: &str) -> anyhow::Result<Box<[LineSelector]>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        any::{type_name, type_name_of_val},
-        error::Error,
-    };
+    use std::error::Error;
 
     #[test]
     fn single_numer() {
