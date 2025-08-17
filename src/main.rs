@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let n_lines = count_lines(&mut file)?;
+    let n_lines = count_lines_and_rewind(&mut file)?;
 
     if args.line_num.unsigned_abs() > n_lines {
         anyhow::bail!(
@@ -106,7 +106,10 @@ fn is_binary(file: &mut BufReader<File>) -> Result<bool> {
     Ok(content_inspector::inspect(buf).is_binary())
 }
 
-pub(crate) fn count_lines(reader: &mut BufReader<File>) -> anyhow::Result<usize> {
+// TODO: support seek for stdin https://github.com/rust-lang/rust/issues/72802#issuecomment-1101996578
+// and https://github.com/uutils/coreutils/pull/4189/files#diff-bd7f28594a45798eed07dea6767fc2bb5cb29e2d2855366ba65b126248bfd4b9R128-R132
+/// Counts the number of lines in a reader and rewinds it
+pub(crate) fn count_lines_and_rewind<R: BufRead + Seek>(reader: &mut R) -> anyhow::Result<usize> {
     let mut n_lines = 0;
     while reader.skip_until(b'\n')? > 0 {
         n_lines += 1;
