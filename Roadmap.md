@@ -46,6 +46,7 @@
 - [ ] add a flag to use zero index.
 - [ ] read from stdin if no file was passed (and maybe support `-` as file).
 - [ ] make a `--quiet` flag to suppress warnings.
+- [ ] create custom error enum.
 
 ## Phase 6: Pretty Printing and Colors
 
