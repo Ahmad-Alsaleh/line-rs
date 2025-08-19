@@ -1,5 +1,5 @@
 use assert_cmd::Command;
-use assert_fs::{NamedTempFile, prelude::*};
+use assert_fs::{prelude::*, NamedTempFile};
 use predicates::{name, ord::eq, str::ends_with};
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 
@@ -201,3 +201,68 @@ fn empty_file() {
         .failure()
         .stderr("Error: Line 1 is out of bound, input has 0 line(s)\n");
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[test]
+//     fn single_number() {
+//         let args = Cli::parse_from([".", "--line", "1", "file"]);
+//         assert_eq!(*args.line_nums, [LineSelector::Single(Number::Positive(1))]);
+//     }
+//
+//     #[test]
+//     fn multiple_numbers() {
+//         let args = Cli::parse_from([".", "--line", "1,2:3,4:4", "file"]);
+//         assert_eq!(
+//             *args.line_nums,
+//             [
+//                 LineSelector::Single(Number::Positive(1)),
+//                 LineSelector::Range(Number::Positive(2), Number::Positive(3)),
+//                 LineSelector::Single(Number::Positive(4)),
+//             ]
+//         );
+//     }
+//
+//     #[test]
+//     fn line_number_is_zero() {
+//         let err = Cli::try_parse_from([".", "--line", "0", "file"]).unwrap_err();
+//         // TODO: replace the below with a custom error. e.g.: LineSelectorError::ZeroLine
+//         assert_eq!(
+//             err.source().unwrap().to_string(),
+//             "Line number can't be zero"
+//         );
+//     }
+//
+//     #[test]
+//     fn space_around_comma() {
+//         let args = Cli::parse_from([".", "--line", "1, 2,3 ,4 , 5", "file"]);
+//         assert_eq!(
+//             *args.line_nums,
+//             [
+//                 LineSelector::Single(Number::Positive(1)),
+//                 LineSelector::Single(Number::Positive(2)),
+//                 LineSelector::Single(Number::Positive(3)),
+//                 LineSelector::Single(Number::Positive(4)),
+//                 LineSelector::Single(Number::Positive(5)),
+//             ]
+//         )
+//     }
+//
+//     #[test]
+//     fn lower_bound_equals_upper_bound() {
+//         let args = Cli::parse_from([".", "--line", "4:4", "file"]);
+//         assert_eq!(*args.line_nums, [LineSelector::Single(Number::Positive(4))])
+//     }
+//
+//     #[test]
+//     fn lower_bound_more_than_upper_bound() {
+//         let err = Cli::try_parse_from([".", "--line", "5:4", "file"]).unwrap_err();
+//         // TODO: replace the below with a custom error. e.g.: LineSelectorError::InvertedRange
+//         assert_eq!(
+//             err.source().unwrap().to_string(),
+//             "Lower bound can't be more than the upper bound: `5:4`"
+//         );
+//     }
+// }
