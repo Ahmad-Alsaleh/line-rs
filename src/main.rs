@@ -76,8 +76,6 @@ fn open_file(path: &Path) -> Result<File> {
             }
         }
         Err(error) => {
-            // TODO: make a `--quiet` flag to suppress warning
-            // TODO: color the word `Warning` in yellow
             eprintln!(
                 "Warning: couldn't determine if `{}` is a file or a directory from its metadata, treating it as a file: {error}",
                 path.display()
