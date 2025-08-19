@@ -67,10 +67,11 @@ impl ParsedLineSelector {
             Ok(num)
         };
 
-        match s.split_once(':') {
+        match s.trim().split_once(':') {
             Some((lower, upper)) => {
-                let lower = to_positive_one_based(lower)?;
-                let upper = to_positive_one_based(upper)?;
+                // TODO: handel unbounded ranges: `1:`, `:1`, and `:`
+                let lower = to_positive_one_based(lower.trim())?;
+                let upper = to_positive_one_based(upper.trim())?;
                 if lower > upper {
                     anyhow::bail!("Lower bound can't be more than upper bound")
                 }

@@ -41,8 +41,7 @@ fn main() -> Result<()> {
         .line_selectors
         .iter()
         .map(|s| {
-            LineSelector::new(s.trim(), n_lines)
-                .with_context(|| format!("Invalid line selector: `{s}`"))
+            LineSelector::new(s, n_lines).with_context(|| format!("Invalid line selector: `{s}`"))
         })
         .collect();
     let line_selectors = line_selectors?;
