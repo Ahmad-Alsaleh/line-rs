@@ -1,5 +1,6 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
+use crate::line_selector::{LineSelector, ParsedLineSelector};
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs::File;
@@ -8,26 +9,27 @@ use std::path::Path;
 
 mod cli;
 mod line_reader;
+mod line_selector;
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-
-    if args.line_num == 0 {
-        anyhow::bail!("Line number can't be zero");
-    }
 
     let file = open_file(&args.file)?;
     let mut file = BufReader::new(file);
 
     if !args.allow_binary_files {
         match is_binary(&mut file) {
-            Ok(true) => anyhow::bail!(
-                "`{}` is a binrary file. Use `--allow-binary-files` to suppress this error",
-                args.file.display()
-            ),
-            Ok(false) => {}
+            Ok(is_binary) => {
+                if is_binary {
+                    anyhow::bail!(
+                        "`{}` is a binrary file. Use `--allow-binary-files` to suppress this error",
+                        args.file.display()
+                    )
+                }
+            }
             Err(err) => eprintln!(
-                "Warning: Failed to determine if `{}` is binary. Use `--allow-binary-files` to suppress this warning. Reason: {err}",
+                "Warning: Failed to determine if `{}` is binary. \
+                Use `--allow-binary-files` to suppress this warning. Reason: {err}",
                 args.file.display()
             ),
         }
@@ -35,34 +37,54 @@ fn main() -> Result<()> {
 
     let n_lines = count_lines_and_rewind(&mut file)?;
 
-    if args.line_num.unsigned_abs() > n_lines {
-        anyhow::bail!(
-            "Line {} is out of bound, input has {} line(s)",
-            args.line_num,
-            n_lines
-        );
+    let line_selectors: anyhow::Result<Box<[_]>> = args
+        .line_selectors
+        .iter()
+        .map(|s| {
+            LineSelector::new(s.trim(), n_lines)
+                .with_context(|| format!("Invalid line selector: `{s}`"))
+        })
+        .collect();
+    let line_selectors = line_selectors?;
+
+    let mut sorted_line_selectors = line_selectors.clone();
+    sorted_line_selectors.sort_unstable();
+
+    let mut line_reader = LineReader::new(file);
+
+    // continue from here
+    // TODO: keep the original order
+    // TODO: handel duplicates (maybe cache a line inside LineReader, but this is not effecient)
+    // and cases like '1,2:4,3' (note that this is sorted but the current_line will need to move
+    // back to 3 after 4)
+    for line_selector in sorted_line_selectors {
+        let LineSelector { parsed, .. } = line_selector;
+        match parsed {
+            ParsedLineSelector::Single(line_num) => {
+                let line = read_line(line_num, &mut line_reader)?;
+                print_line(&line)?;
+            }
+            ParsedLineSelector::Range(lower, upper) => {
+                for line_num in lower..=upper {
+                    let line = read_line(line_num, &mut line_reader)?;
+                    print_line(&line)?;
+                }
+            }
+        }
     }
-    let line_num = to_pisitive_zero_index(args.line_num, n_lines);
 
-    let line_reader = LineReader::new(file);
-    let line = read_line(line_num, line_reader)?;
-
-    std::io::stdout()
-        .lock()
-        .write_all(&line)
-        .context("Failed to write line to stdout")?;
+    // 2,1,3:5,4 (before sort)
+    // 1,2,3:5,4 (after sort)
 
     Ok(())
 }
 
-/// Converts negative line numbers to possitve and converts one-index to zero-index
-fn to_pisitive_zero_index(line_num: isize, n_lines: usize) -> usize {
-    if line_num < 0 {
-        n_lines - -line_num as usize
-    } else {
-        // subtracte one to convert to zero-index
-        line_num as usize - 1
-    }
+fn print_line(line: &[u8]) -> Result<(), anyhow::Error> {
+    std::io::stdout()
+        .lock()
+        .write_all(line)
+        .context("Failed to write line to stdout")?;
+    Ok(())
 }
 
 fn open_file(path: &Path) -> Result<File> {
@@ -87,7 +109,7 @@ fn open_file(path: &Path) -> Result<File> {
 }
 
 /// Note: `line_num` should be zero-indexed
-fn read_line<R: BufRead>(line_num: usize, mut line_reader: LineReader<R>) -> Result<Vec<u8>> {
+fn read_line<R: BufRead>(line_num: usize, line_reader: &mut LineReader<R>) -> Result<Vec<u8>> {
     let mut line_buf = Vec::new();
     line_reader
         .read_specific_line(&mut line_buf, line_num)

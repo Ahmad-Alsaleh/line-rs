@@ -1,47 +1,105 @@
 use anyhow::Context;
-use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum LineSelector {
-    Single(Number),
-    Range(Number, Number),
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct LineSelector<'a> {
+    pub(crate) original: &'a str,
+    pub(crate) parsed: ParsedLineSelector,
 }
 
-impl Ord for LineSelector {
+impl Ord for LineSelector<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self, other) {
-            (LineSelector::Single(a), LineSelector::Single(b)) => a.cmp(b),
-            (LineSelector::Single(a), LineSelector::Range(b, _)) => a.cmp(b),
-            (LineSelector::Range(a, _), LineSelector::Single(b)) => a.cmp(b),
-            (LineSelector::Range(a, _), LineSelector::Range(b, _)) => a.cmp(b),
-        }
+        self.parsed.cmp(&other.parsed)
     }
 }
 
-impl PartialOrd for LineSelector {
+impl PartialOrd for LineSelector<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Number {
-    Positive(usize),
-    Negative(usize),
+impl<'a> LineSelector<'a> {
+    pub(crate) fn new(s: &'a str, n_lines: usize) -> anyhow::Result<Self> {
+        Ok(Self {
+            original: s,
+            parsed: ParsedLineSelector::new(s, n_lines)?,
+        })
+    }
 }
 
-impl Ord for Number {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self, other) {
-            (Number::Positive(a), Number::Positive(b)) => a.cmp(b),
-            (Number::Positive(_), Number::Negative(_)) => std::cmp::Ordering::Greater,
-            (Number::Negative(_), Number::Positive(_)) => std::cmp::Ordering::Less,
-            (Number::Negative(a), Number::Negative(b)) => b.cmp(a),
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ParsedLineSelector {
+    Single(usize),
+    Range(usize, usize),
+}
+
+impl ParsedLineSelector {
+    /// Parses `s` as a zero-based line number and converts negative line numbers to positive
+    /// `n_lines` is the number of lines in a file, it will be used to convert negative numbers
+    /// to positive and to check if the parsed line number is not out of bound.
+    ///
+    /// Errors:
+    ///
+    /// This method returns an error if:
+    /// 1. `s` can't be parsed into a number
+    /// 2. The parsed number is zero (line numbers are one-based and can't be zero)
+    /// 3. The parsed number is not between -n_lines and n_lines
+    pub(crate) fn new(s: &str, n_lines: usize) -> anyhow::Result<Self> {
+        let to_positive_one_based = |s: &str| {
+            let num: isize = s
+                .parse()
+                .with_context(|| format!("Value `{s}` is not a number"))?;
+
+            if num == 0 {
+                anyhow::bail!("Line number can't be zero");
+            }
+
+            if num.unsigned_abs() > n_lines {
+                anyhow::bail!("Line {num} is out of bound, input has {n_lines} line(s) only",);
+            }
+
+            let num = if num < 0 {
+                n_lines - -num as usize
+            } else {
+                num as usize - 1
+            };
+
+            Ok(num)
+        };
+
+        match s.split_once(':') {
+            Some((lower, upper)) => {
+                let lower = to_positive_one_based(lower)?;
+                let upper = to_positive_one_based(upper)?;
+                if lower > upper {
+                    anyhow::bail!("Lower bound can't be more than upper bound")
+                }
+                if lower == upper {
+                    Ok(Self::Single(lower))
+                } else {
+                    Ok(Self::Range(lower, upper))
+                }
+            }
+            None => {
+                let num = to_positive_one_based(s)?;
+                Ok(Self::Single(num))
+            }
         }
     }
 }
 
-impl PartialOrd for Number {
+impl Ord for ParsedLineSelector {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (ParsedLineSelector::Single(a), ParsedLineSelector::Single(b)) => a.cmp(b),
+            (ParsedLineSelector::Single(a), ParsedLineSelector::Range(b, _)) => a.cmp(b),
+            (ParsedLineSelector::Range(a, _), ParsedLineSelector::Single(b)) => a.cmp(b),
+            (ParsedLineSelector::Range(a, _), ParsedLineSelector::Range(b, _)) => a.cmp(b),
+        }
+    }
+}
+
+impl PartialOrd for ParsedLineSelector {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -60,79 +118,5 @@ read and cache: [(1, ...), (5, ...)]
 input: 4,7,2,1:5
 sort-input: 1:5,2,4,7
 read and cache: [(1, ), (2, ), (3, ), (4, ), (5, ), (7, )]
-note: before inserting a new item, check if it's key is < vec.last to avoid duplicates
+note: before inserting a new item, ensure it's key is < vec.last, to avoid duplicates
  */
-
-// impl LineSelector {
-// Converts negative line numbers to possitve and converts one-index to zero-index
-// pub(crate) fn to_pisitive_zero_index(&mut self, n_lines: usize) {
-//     let convert = |line_num: isize| {
-//         if line_num < 0 {
-//             n_lines - -line_num as usize
-//         } else {
-//             // subtracte one to convert to zero-index
-//             line_num as usize - 1
-//         }
-//     };
-//     if let LineSelector::Single(v) = self {}
-//     match self {
-//         LineSelector::Single(line_num) => {
-//             *line_num = convert(*line_num);
-//         }
-//         LineSelector::Range(lower, upper) => {
-//             *lower = convert(*lower);
-//             *upper = convert(*upper);
-//         }
-//     };
-// }
-// }
-
-/*
--5 -4 -3 -2 -1
- 1  2  3  4  5
-
-
-
-3:-1
--1+(5+1) =
-*/
-
-impl FromStr for LineSelector {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        fn parse_num(s: &str) -> anyhow::Result<Number> {
-            let num: isize = s
-                .parse()
-                .with_context(|| format!("Value `{s}` is not a number"))?;
-
-            if num == 0 {
-                anyhow::bail!("Line number can't be zero");
-            }
-
-            let num = if num < 0 {
-                Number::Negative(num.unsigned_abs())
-            } else {
-                Number::Positive(num as usize)
-            };
-
-            Ok(num)
-        }
-
-        match s.split_once(':') {
-            Some((lower, upper)) => {
-                let lower = parse_num(lower)?;
-                let upper = parse_num(upper)?;
-                if lower == upper {
-                    Ok(LineSelector::Single(lower))
-                } else {
-                    Ok(LineSelector::Range(lower, upper))
-                }
-            }
-            None => {
-                let num = parse_num(s)?;
-                Ok(LineSelector::Single(num))
-            }
-        }
-    }
-}
