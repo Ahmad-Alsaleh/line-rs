@@ -47,6 +47,7 @@ impl ParsedLineSelector {
     pub(crate) fn from_str(s: &str, n_lines: usize) -> anyhow::Result<Self> {
         let to_positive_one_based = |s: &str| {
             let num: isize = s
+                .trim()
                 .parse()
                 .with_context(|| format!("Value `{s}` is not a number"))?;
 
@@ -67,11 +68,11 @@ impl ParsedLineSelector {
             Ok(num)
         };
 
-        match s.trim().split_once(':') {
+        match s.split_once(':') {
             Some((lower, upper)) => {
                 // TODO: handel unbounded ranges: `1:`, `:1`, and `:`
-                let lower = to_positive_one_based(lower.trim())?;
-                let upper = to_positive_one_based(upper.trim())?;
+                let lower = to_positive_one_based(lower)?;
+                let upper = to_positive_one_based(upper)?;
                 if lower > upper {
                     anyhow::bail!("Lower bound can't be more than upper bound")
                 }
@@ -82,7 +83,7 @@ impl ParsedLineSelector {
                 }
             }
             None => {
-                let num = to_positive_one_based(s.trim())?;
+                let num = to_positive_one_based(s)?;
                 Ok(Self::Single(num))
             }
         }
