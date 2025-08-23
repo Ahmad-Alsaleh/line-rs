@@ -1,5 +1,5 @@
 use assert_cmd::Command;
-use assert_fs::{prelude::*, NamedTempFile};
+use assert_fs::{NamedTempFile, prelude::*};
 use predicates::{ord::eq, str::ends_with};
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 
@@ -234,6 +234,8 @@ fn empty_file() {
 //             "Line number can't be zero"
 //         );
 //     }
+//
+//     // TODO: add `space_around_colon` test
 //
 //     #[test]
 //     fn space_around_comma() {
