@@ -66,5 +66,5 @@
 
 - [ ] add a flag `--not` to skip lines. the syntax should be the same as `-n` (range, multiple lines, negative values, etc.). make sure to `AND` the `-not` with `-n`. if `-n` is not there then print all lines except `--not`.
 - [ ] add option `--skip` to print `-n` except the skipped lines. the syntax for `--skip` is the same as `-n` (range, multiple lines, negative values, etc.).
-- [ ] deduplicate lines by default, set a flag to turn this off called `--duplicate`.
+- [ ] allow duplicates by default, set a flag to turn this off called `--noduplicate`.
 
