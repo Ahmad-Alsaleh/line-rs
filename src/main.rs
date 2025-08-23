@@ -42,11 +42,11 @@ fn main() -> Result<()> {
 
     // parse line selectors from cli args
     let line_selectors: anyhow::Result<Box<[_]>> = args
-        .line_selectors
-        .iter()
-        .map(|s| {
-            LineSelector::from_str(s, n_lines)
-                .with_context(|| format!("Invalid line selector: `{s}`"))
+        .original_line_selectors
+        .into_iter()
+        .map(|original_line_selector| {
+            LineSelector::from_original(original_line_selector, n_lines)
+                .with_context(|| format!("Invalid line selector: {original_line_selector}"))
         })
         .collect();
     let line_selectors = line_selectors?;
@@ -140,7 +140,7 @@ fn open_file(path: &Path) -> Result<File> {
     Ok(file)
 }
 
-/// Note: `line_num` should be zero-indexed
+/// Note: `line_num` should be zero-based
 fn read_line<R: BufRead>(
     buf: &mut Vec<u8>,
     line_num: usize,
@@ -179,41 +179,49 @@ mod tests {
 
     mod n_selected_lines {
         use super::*;
+        use crate::line_selector::OriginalLineSelector;
+
+        macro_rules! create_line_selector {
+            ($s: literal, $n_lines: literal) => {{
+                let original = OriginalLineSelector::from_str($s).unwrap();
+                LineSelector::from_original(original, $n_lines)
+            }};
+        }
 
         #[test]
         fn b_lower_is_a_lower() {
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("2", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("2", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("2:5", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("2:5", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("2:7", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("2:7", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("2:9", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("2:9", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 8);
 
-            let a = LineSelector::from_str("3", 42).unwrap();
-            let b = LineSelector::from_str("3", 42).unwrap();
+            let a = create_line_selector!("3", 42).unwrap();
+            let b = create_line_selector!("3", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 1);
 
-            let a = LineSelector::from_str("3", 42).unwrap();
-            let b = LineSelector::from_str("3:5", 42).unwrap();
+            let a = create_line_selector!("3", 42).unwrap();
+            let b = create_line_selector!("3:5", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 3);
@@ -221,26 +229,26 @@ mod tests {
 
         #[test]
         fn b_lower_is_inside_a() {
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("4", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("4", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("4:6", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("4:6", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("4:7", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("4:7", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:7", 42).unwrap();
-            let b = LineSelector::from_str("4:9", 42).unwrap();
+            let a = create_line_selector!("2:7", 42).unwrap();
+            let b = create_line_selector!("4:9", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 8);
@@ -248,14 +256,14 @@ mod tests {
 
         #[test]
         fn b_lower_is_a_upper() {
-            let a = LineSelector::from_str("2:6", 42).unwrap();
-            let b = LineSelector::from_str("6", 42).unwrap();
+            let a = create_line_selector!("2:6", 42).unwrap();
+            let b = create_line_selector!("6", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 5);
 
-            let a = LineSelector::from_str("2:6", 42).unwrap();
-            let b = LineSelector::from_str("6:8", 42).unwrap();
+            let a = create_line_selector!("2:6", 42).unwrap();
+            let b = create_line_selector!("6:8", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 7);
@@ -263,26 +271,26 @@ mod tests {
 
         #[test]
         fn b_lower_is_outside_a() {
-            let a = LineSelector::from_str("2:6", 42).unwrap();
-            let b = LineSelector::from_str("7", 42).unwrap();
+            let a = create_line_selector!("2:6", 42).unwrap();
+            let b = create_line_selector!("7", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 6);
 
-            let a = LineSelector::from_str("2:6", 42).unwrap();
-            let b = LineSelector::from_str("7:9", 42).unwrap();
+            let a = create_line_selector!("2:6", 42).unwrap();
+            let b = create_line_selector!("7:9", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 8);
 
-            let a = LineSelector::from_str("3", 42).unwrap();
-            let b = LineSelector::from_str("5", 42).unwrap();
+            let a = create_line_selector!("3", 42).unwrap();
+            let b = create_line_selector!("5", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 2);
 
-            let a = LineSelector::from_str("3", 42).unwrap();
-            let b = LineSelector::from_str("5:7", 42).unwrap();
+            let a = create_line_selector!("3", 42).unwrap();
+            let b = create_line_selector!("5:7", 42).unwrap();
             let mut v = [a, b];
             v.sort();
             assert_eq!(n_selected_lines(&v), 4);

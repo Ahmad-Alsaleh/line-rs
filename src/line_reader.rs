@@ -32,14 +32,13 @@ impl<R: BufRead> LineReader<R> {
         Ok(())
     }
 
-    /// `line_num` is zero-indexed.
+    /// `line_num` is zero-based.
     /// `lines_num` should be more than `self.current_line`.
     pub(crate) fn read_specific_line(
         &mut self,
         buf: &mut Vec<u8>,
         line_num: usize,
     ) -> anyhow::Result<()> {
-        // avoid attempting to skip lines if there is no need
         if line_num != self.current_line {
             self.skip_lines(line_num - self.current_line)?;
         }
