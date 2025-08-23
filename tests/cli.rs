@@ -14,6 +14,7 @@ fn extract_line_in_middle() {
         .unwrap()
         .arg("-n")
         .arg("1")
+        .arg("-p")
         .arg(file.path())
         .assert()
         .success()
@@ -29,6 +30,7 @@ fn extract_last_line() {
         .unwrap()
         .arg("--line")
         .arg("3")
+        .arg("-p")
         .arg(file.path())
         .assert()
         .success()
@@ -41,6 +43,7 @@ fn extract_last_line() {
         .unwrap()
         .arg("--line")
         .arg("3")
+        .arg("-p")
         .arg(file.path())
         .assert()
         .success()
@@ -49,13 +52,16 @@ fn extract_last_line() {
 
 #[test]
 fn line_num_is_zero() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.touch().unwrap();
+
     Command::cargo_bin(BIN_NAME)
         .unwrap()
         .arg("-n=0")
-        .arg("file")
+        .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Line number can't be zero\n");
+        .stderr("Error: Invalid line selector: 0\n\nCaused by:\n    Line number can't be zero\n");
 }
 
 #[test]
@@ -84,6 +90,7 @@ fn accepts_binary_file_with_flag() {
     Command::cargo_bin(BIN_NAME)
         .unwrap()
         .arg("-n=2")
+        .arg("-p")
         .arg(file.path())
         .arg("--allow-binary-files")
         .assert()
@@ -129,7 +136,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Line 4 is out of bound, input has 3 line(s)\n");
+        .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of bound, input has 3 line(s) only\n");
 }
 
 #[test]
@@ -143,7 +150,7 @@ fn line_too_small() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Line -4 is out of bound, input has 3 line(s)\n");
+        .stderr("Error: Invalid line selector: -4\n\nCaused by:\n    Line -4 is out of bound, input has 3 line(s) only\n");
 }
 
 #[test]
@@ -154,6 +161,7 @@ fn extract_first_line_in_negative() {
     Command::cargo_bin(BIN_NAME)
         .unwrap()
         .arg("-n=-3")
+        .arg("-p")
         .arg(file.path())
         .assert()
         .success()
@@ -168,6 +176,7 @@ fn extract_last_line_in_negative() {
     Command::cargo_bin(BIN_NAME)
         .unwrap()
         .arg("-n=-1")
+        .arg("-p")
         .arg(file.path())
         .assert()
         .success()
@@ -182,6 +191,7 @@ fn extract_middle_line_in_negative() {
     Command::cargo_bin(BIN_NAME)
         .unwrap()
         .arg("-n=-2")
+        .arg("-p")
         .arg(file.path())
         .assert()
         .success()
@@ -199,8 +209,10 @@ fn empty_file() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Line 1 is out of bound, input has 0 line(s)\n");
+        .stderr( "Error: Invalid line selector: 1\n\nCaused by:\n    Line 1 is out of bound, input has 0 line(s) only\n");
 }
+
+// -----
 
 // #[cfg(test)]
 // mod tests {

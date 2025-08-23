@@ -83,7 +83,9 @@ fn main() -> Result<()> {
 
     // print selected lines
     for line_selector in line_selectors {
-        println!("{}", line_selector.original);
+        if !args.plain {
+            println!("{}", line_selector.original);
+        }
         match line_selector.parsed {
             ParsedLineSelector::Single(line_num) => {
                 let line = &lines[&line_num];

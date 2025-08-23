@@ -15,4 +15,8 @@ pub(crate) struct Cli {
     /// Treat binary files as text files
     #[arg(long)]
     pub(crate) allow_binary_files: bool,
+
+    ///Only show plain style, no decorations or line numbers
+    #[arg(short, long)]
+    pub(crate) plain: bool,
 }
