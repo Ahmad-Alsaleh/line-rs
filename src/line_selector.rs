@@ -7,10 +7,10 @@ pub(crate) struct LineSelector<'a> {
 }
 
 impl<'a> LineSelector<'a> {
-    pub(crate) fn new(s: &'a str, n_lines: usize) -> anyhow::Result<Self> {
+    pub(crate) fn from_str(s: &'a str, n_lines: usize) -> anyhow::Result<Self> {
         Ok(Self {
             original: s,
-            parsed: ParsedLineSelector::new(s, n_lines)?,
+            parsed: ParsedLineSelector::from_str(s, n_lines)?,
         })
     }
 }
@@ -44,7 +44,7 @@ impl ParsedLineSelector {
     /// 1. `s` can't be parsed into a number
     /// 2. The parsed number is zero (line numbers are one-based and can't be zero)
     /// 3. The parsed number is not between -n_lines and n_lines
-    pub(crate) fn new(s: &str, n_lines: usize) -> anyhow::Result<Self> {
+    pub(crate) fn from_str(s: &str, n_lines: usize) -> anyhow::Result<Self> {
         let to_positive_one_based = |s: &str| {
             let num: isize = s
                 .parse()
@@ -87,6 +87,33 @@ impl ParsedLineSelector {
             }
         }
     }
+
+    pub(crate) fn len(&self) -> usize {
+        match self {
+            ParsedLineSelector::Single(_) => 1,
+            ParsedLineSelector::Range(lower, upper) => upper - lower + 1,
+        }
+    }
+
+    pub(crate) fn lower(&self) -> usize {
+        match self {
+            ParsedLineSelector::Single(lower) => *lower,
+            ParsedLineSelector::Range(lower, _) => *lower,
+        }
+    }
+
+    pub(crate) fn upper(&self) -> usize {
+        match self {
+            ParsedLineSelector::Single(upper) => *upper,
+            ParsedLineSelector::Range(_, upper) => *upper,
+        }
+    }
+
+    pub(crate) fn overlap_len(&self, other: &Self) -> usize {
+        let upper = usize::min(self.upper(), other.upper());
+        let lower = usize::max(self.lower(), other.lower());
+        (upper + 1).saturating_sub(lower)
+    }
 }
 
 impl Ord for ParsedLineSelector {
@@ -126,73 +153,157 @@ note: before inserting a new item, ensure it's key is < vec.last, to avoid dupli
 mod tests {
     use super::*;
 
-    #[test]
-    fn single_number() -> anyhow::Result<()> {
-        assert_eq!(
-            ParsedLineSelector::new("2", 2)?,
-            ParsedLineSelector::Single(1)
-        );
-        assert_eq!(
-            ParsedLineSelector::new("-2", 2)?,
-            ParsedLineSelector::Single(0)
-        );
-        Ok(())
+    mod from_str {
+        use super::*;
+
+        #[test]
+        fn single_number() -> anyhow::Result<()> {
+            assert_eq!(
+                ParsedLineSelector::from_str("2", 2)?,
+                ParsedLineSelector::Single(1)
+            );
+            assert_eq!(
+                ParsedLineSelector::from_str("-2", 2)?,
+                ParsedLineSelector::Single(0)
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn line_number_is_zero() {
+            // TODO: replace all `.is_err` with `matches!(CORRECT_ERROR_TYPE)`
+            // once custom errors are created
+            assert!(ParsedLineSelector::from_str("0", 42).is_err());
+        }
+
+        #[test]
+        fn not_parsable() {
+            assert!(ParsedLineSelector::from_str("a", 42).is_err());
+        }
+
+        #[test]
+        fn lower_bound_equals_upper_bound() -> anyhow::Result<()> {
+            assert_eq!(
+                ParsedLineSelector::from_str("2:2", 2)?,
+                ParsedLineSelector::Single(1)
+            );
+            assert_eq!(
+                ParsedLineSelector::from_str("2:-4", 5)?,
+                ParsedLineSelector::Single(1)
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn out_of_bounds() {
+            assert!(ParsedLineSelector::from_str("-3", 2).is_err());
+            assert!(ParsedLineSelector::from_str("3", 2).is_err());
+        }
+
+        #[test]
+        fn lower_bound_more_than_upper_bound() {
+            assert!(ParsedLineSelector::from_str("3:2", 42).is_err());
+        }
+
+        #[test]
+        fn range() -> anyhow::Result<()> {
+            assert_eq!(
+                ParsedLineSelector::from_str("-5:2", 5)?,
+                ParsedLineSelector::Range(0, 1)
+            );
+            assert_eq!(
+                ParsedLineSelector::from_str("2:-1", 5)?,
+                ParsedLineSelector::Range(1, 4)
+            );
+            assert_eq!(
+                ParsedLineSelector::from_str("2:5", 5)?,
+                ParsedLineSelector::Range(1, 4)
+            );
+            assert_eq!(
+                ParsedLineSelector::from_str("-5:-1", 5)?,
+                ParsedLineSelector::Range(0, 4)
+            );
+            Ok(())
+        }
     }
 
-    #[test]
-    fn line_number_is_zero() {
-        // TODO: replace all `.is_err` with `matches!(CORRECT_ERROR_TYPE)`
-        // once custom errors are created
-        assert!(ParsedLineSelector::new("0", 42).is_err());
-    }
+    mod overlap_len {
+        use super::*;
 
-    #[test]
-    fn not_parsable() {
-        assert!(ParsedLineSelector::new("a", 42).is_err());
-    }
+        #[test]
+        fn b_lower_is_a_lower() {
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("2", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 1);
 
-    #[test]
-    fn lower_bound_equals_upper_bound() -> anyhow::Result<()> {
-        assert_eq!(
-            ParsedLineSelector::new("2:2", 2)?,
-            ParsedLineSelector::Single(1)
-        );
-        assert_eq!(
-            ParsedLineSelector::new("2:-4", 5)?,
-            ParsedLineSelector::Single(1)
-        );
-        Ok(())
-    }
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("2:5", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 4);
 
-    #[test]
-    fn out_of_bounds() {
-        assert!(ParsedLineSelector::new("-3", 2).is_err());
-        assert!(ParsedLineSelector::new("3", 2).is_err());
-    }
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 6);
 
-    #[test]
-    fn lower_bound_more_than_upper_bound() {
-        assert!(ParsedLineSelector::new("3:2", 42).is_err());
-    }
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("2:9", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 6);
 
-    #[test]
-    fn range() -> anyhow::Result<()> {
-        assert_eq!(
-            ParsedLineSelector::new("-5:2", 5)?,
-            ParsedLineSelector::Range(0, 1)
-        );
-        assert_eq!(
-            ParsedLineSelector::new("2:-1", 5)?,
-            ParsedLineSelector::Range(1, 4)
-        );
-        assert_eq!(
-            ParsedLineSelector::new("2:5", 5)?,
-            ParsedLineSelector::Range(1, 4)
-        );
-        assert_eq!(
-            ParsedLineSelector::new("-5:-1", 5)?,
-            ParsedLineSelector::Range(0, 4)
-        );
-        Ok(())
+            let a = ParsedLineSelector::from_str("3", 42).unwrap();
+            let b = ParsedLineSelector::from_str("3", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 1);
+
+            let a = ParsedLineSelector::from_str("3", 42).unwrap();
+            let b = ParsedLineSelector::from_str("3:5", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 1);
+        }
+
+        #[test]
+        fn b_lower_is_inside_a() {
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("4", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 1);
+
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("4:6", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 3);
+
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("4:7", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 4);
+
+            let a = ParsedLineSelector::from_str("2:7", 42).unwrap();
+            let b = ParsedLineSelector::from_str("4:9", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 4);
+        }
+
+        #[test]
+        fn b_lower_is_a_upper() {
+            let a = ParsedLineSelector::from_str("2:6", 42).unwrap();
+            let b = ParsedLineSelector::from_str("6", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 1);
+
+            let a = ParsedLineSelector::from_str("2:6", 42).unwrap();
+            let b = ParsedLineSelector::from_str("6:8", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 1);
+        }
+
+        #[test]
+        fn b_lower_is_outside_a() {
+            let a = ParsedLineSelector::from_str("2:6", 42).unwrap();
+            let b = ParsedLineSelector::from_str("7", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 0);
+
+            let a = ParsedLineSelector::from_str("2:6", 42).unwrap();
+            let b = ParsedLineSelector::from_str("7:9", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 0);
+
+            let a = ParsedLineSelector::from_str("3", 42).unwrap();
+            let b = ParsedLineSelector::from_str("5", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 0);
+
+            let a = ParsedLineSelector::from_str("3", 42).unwrap();
+            let b = ParsedLineSelector::from_str("5:7", 42).unwrap();
+            assert_eq!(a.overlap_len(&b), 0);
+        }
     }
 }

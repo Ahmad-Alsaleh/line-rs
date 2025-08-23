@@ -32,8 +32,8 @@ impl<R: BufRead> LineReader<R> {
         Ok(())
     }
 
-    /// `lines_num` should be more than `self.current_line`.
     /// `line_num` is zero-indexed.
+    /// `lines_num` should be more than `self.current_line`.
     pub(crate) fn read_specific_line(
         &mut self,
         buf: &mut Vec<u8>,

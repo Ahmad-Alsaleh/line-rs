@@ -3,6 +3,8 @@ use crate::line_reader::LineReader;
 use crate::line_selector::{LineSelector, ParsedLineSelector};
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
@@ -17,6 +19,7 @@ fn main() -> Result<()> {
     let file = open_file(&args.file)?;
     let mut file = BufReader::new(file);
 
+    // check if the file is binary and binary files are not allowed
     if !args.allow_binary_files {
         match is_binary(&mut file) {
             Ok(is_binary) => {
@@ -37,11 +40,13 @@ fn main() -> Result<()> {
 
     let n_lines = count_lines_and_rewind(&mut file)?;
 
+    // parse line selectors from cli args
     let line_selectors: anyhow::Result<Box<[_]>> = args
         .line_selectors
         .iter()
         .map(|s| {
-            LineSelector::new(s, n_lines).with_context(|| format!("Invalid line selector: `{s}`"))
+            LineSelector::from_str(s, n_lines)
+                .with_context(|| format!("Invalid line selector: `{s}`"))
         })
         .collect();
     let line_selectors = line_selectors?;
@@ -51,34 +56,61 @@ fn main() -> Result<()> {
 
     let mut line_reader = LineReader::new(file);
 
-    // continue from here
-    // TODO: keep the original order
-    // TODO: handel duplicates (maybe cache a line inside LineReader, but this is not effecient)
-    // and cases like '1,2:4,3' (note that this is sorted but the current_line will need to move
-    // back to 3 after 4)
+    // TODO: benchmark to check if using a Vec + binary search is better than using a hash map
+    // read and store selected lines
+    let mut lines: HashMap<usize, Vec<u8>> =
+        HashMap::with_capacity(n_selected_lines(&sorted_line_selectors));
     for line_selector in sorted_line_selectors {
-        let LineSelector { parsed, .. } = line_selector;
-        match parsed {
+        match line_selector.parsed {
             ParsedLineSelector::Single(line_num) => {
-                let line = read_line(line_num, &mut line_reader)?;
-                print_line(&line)?;
+                if let Entry::Vacant(e) = lines.entry(line_num) {
+                    let mut line_buf = Vec::new();
+                    read_line(&mut line_buf, line_num, &mut line_reader)?;
+                    e.insert(line_buf);
+                }
             }
             ParsedLineSelector::Range(lower, upper) => {
                 for line_num in lower..=upper {
-                    let line = read_line(line_num, &mut line_reader)?;
-                    print_line(&line)?;
+                    if let Entry::Vacant(e) = lines.entry(line_num) {
+                        let mut line_buf = Vec::new();
+                        read_line(&mut line_buf, line_num, &mut line_reader)?;
+                        e.insert(line_buf);
+                    }
                 }
             }
         }
     }
 
-    // 2,1,3:5,4 (before sort)
-    // 1,2,3:5,4 (after sort)
+    // print selected lines
+    for line_selector in line_selectors {
+        println!("{}", line_selector.original);
+        match line_selector.parsed {
+            ParsedLineSelector::Single(line_num) => {
+                let line = &lines[&line_num];
+                print_line(line)?;
+            }
+            ParsedLineSelector::Range(lower, upper) => {
+                for line_num in lower..=upper {
+                    let line = &lines[&line_num];
+                    print_line(line)?;
+                }
+            }
+        }
+    }
 
     Ok(())
 }
 
-fn print_line(line: &[u8]) -> Result<(), anyhow::Error> {
+fn n_selected_lines(sorted_line_selectors: &[LineSelector]) -> usize {
+    let mut count = sorted_line_selectors[0].parsed.len();
+    for window in sorted_line_selectors.windows(2) {
+        let (prev, curr) = (&window[0].parsed, &window[1].parsed);
+        count += curr.len() - curr.overlap_len(prev);
+    }
+    count
+}
+
+fn print_line(line: &[u8]) -> anyhow::Result<()> {
     std::io::stdout()
         .lock()
         .write_all(line)
@@ -98,7 +130,8 @@ fn open_file(path: &Path) -> Result<File> {
         }
         Err(error) => {
             eprintln!(
-                "Warning: couldn't determine if `{}` is a file or a directory from its metadata, treating it as a file: {error}",
+                "Warning: couldn't determine if `{}` is a file or a directory from its metadata, \
+                treating it as a file. Reason: {error}",
                 path.display()
             );
         }
@@ -108,12 +141,14 @@ fn open_file(path: &Path) -> Result<File> {
 }
 
 /// Note: `line_num` should be zero-indexed
-fn read_line<R: BufRead>(line_num: usize, line_reader: &mut LineReader<R>) -> Result<Vec<u8>> {
-    let mut line_buf = Vec::new();
+fn read_line<R: BufRead>(
+    buf: &mut Vec<u8>,
+    line_num: usize,
+    line_reader: &mut LineReader<R>,
+) -> anyhow::Result<()> {
     line_reader
-        .read_specific_line(&mut line_buf, line_num)
-        .with_context(|| format!("Failed to read line number {line_num}"))?;
-    Ok(line_buf)
+        .read_specific_line(buf, line_num)
+        .with_context(|| format!("Failed to read line number {line_num}"))
 }
 
 fn is_binary(file: &mut BufReader<File>) -> Result<bool> {
@@ -136,4 +171,121 @@ pub(crate) fn count_lines_and_rewind<R: BufRead + Seek>(reader: &mut R) -> anyho
     }
     reader.rewind()?;
     Ok(n_lines)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod n_selected_lines {
+        use super::*;
+
+        #[test]
+        fn b_lower_is_a_lower() {
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("2", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("2:5", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("2:7", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("2:9", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 8);
+
+            let a = LineSelector::from_str("3", 42).unwrap();
+            let b = LineSelector::from_str("3", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 1);
+
+            let a = LineSelector::from_str("3", 42).unwrap();
+            let b = LineSelector::from_str("3:5", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 3);
+        }
+
+        #[test]
+        fn b_lower_is_inside_a() {
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("4", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("4:6", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("4:7", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:7", 42).unwrap();
+            let b = LineSelector::from_str("4:9", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 8);
+        }
+
+        #[test]
+        fn b_lower_is_a_upper() {
+            let a = LineSelector::from_str("2:6", 42).unwrap();
+            let b = LineSelector::from_str("6", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 5);
+
+            let a = LineSelector::from_str("2:6", 42).unwrap();
+            let b = LineSelector::from_str("6:8", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 7);
+        }
+
+        #[test]
+        fn b_lower_is_outside_a() {
+            let a = LineSelector::from_str("2:6", 42).unwrap();
+            let b = LineSelector::from_str("7", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 6);
+
+            let a = LineSelector::from_str("2:6", 42).unwrap();
+            let b = LineSelector::from_str("7:9", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 8);
+
+            let a = LineSelector::from_str("3", 42).unwrap();
+            let b = LineSelector::from_str("5", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 2);
+
+            let a = LineSelector::from_str("3", 42).unwrap();
+            let b = LineSelector::from_str("5:7", 42).unwrap();
+            let mut v = [a, b];
+            v.sort();
+            assert_eq!(n_selected_lines(&v), 4);
+        }
+    }
 }

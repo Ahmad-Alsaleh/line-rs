@@ -1,6 +1,6 @@
 use assert_cmd::Command;
 use assert_fs::{prelude::*, NamedTempFile};
-use predicates::{name, ord::eq, str::ends_with};
+use predicates::{ord::eq, str::ends_with};
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 
 const BIN_NAME: &str = "line";
