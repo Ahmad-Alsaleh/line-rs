@@ -82,7 +82,7 @@ impl ParsedLineSelector {
                 }
             }
             None => {
-                let num = to_positive_one_based(s)?;
+                let num = to_positive_one_based(s.trim())?;
                 Ok(Self::Single(num))
             }
         }
