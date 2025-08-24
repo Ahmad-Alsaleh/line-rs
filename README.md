@@ -133,7 +133,7 @@ Output
 {"number":4,"content":"bar"}
 ```
 
-## 🔧 Installation
+## Installation
 
 > More about that soon
 
@@ -167,7 +167,7 @@ echo -e "a\nb\nc" | line -n=1 -
 
 ---
 
-## 🛠 Motivation
+## Motivation
 
 This tool simplifies extracting lines from a file or stream without relying on brittle chains like:
 
@@ -179,13 +179,13 @@ cat file.txt | head -n=4 | tail -n=1
 
 ---
 
-## 📃 License
+## License
 
 MIT
 
 ---
 
-## 💬 Feedback
+## Feedback
 
 Feel free to open issues or suggestions on [GitHub](https://github.com/yourname/line-rs).
 

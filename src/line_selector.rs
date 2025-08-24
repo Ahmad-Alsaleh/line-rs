@@ -33,8 +33,13 @@ impl PartialOrd for LineSelector {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ParsedLineSelector {
+    /// Stores a single line selector.
+    /// Note that the line number is zero-based.
     Single(usize),
-    Range(usize, usize),
+
+    /// Stores the lower bound, upper bound , and step of a line selector.
+    /// Note that lower and upper bounds are zero-based and both ends are inclusive.
+    Range(usize, usize, usize),
 }
 
 impl ParsedLineSelector {
@@ -80,43 +85,56 @@ impl ParsedLineSelector {
                     .unwrap_or(Ok(n_lines - 1))?;
 
                 if lower > upper {
-                    anyhow::bail!("Lower bound can't be more than upper bound")
+                    anyhow::bail!(
+                        "The start of the range can't be more than it's end when the step is positive"
+                    );
                 }
 
                 if lower == upper {
                     Ok(Self::Single(lower))
                 } else {
-                    Ok(Self::Range(lower, upper))
+                    Ok(Self::Range(lower, upper, 1))
+                }
+            }
+            OriginalLineSelector::RangeWithStep(lower, upper, step) => {
+                if step == Some(0) {
+                    anyhow::bail!("Step can't be zero");
+                }
+
+                let lower = lower.map(to_positive_one_based).unwrap_or(Ok(0))?;
+                let upper = upper
+                    .map(to_positive_one_based)
+                    .unwrap_or(Ok(n_lines - 1))?;
+                let step = step.unwrap_or(1);
+
+                if step > 0 && lower > upper {
+                    anyhow::bail!(
+                        "The start of the range can't be more than it's end when the step is positive"
+                    );
+                }
+                if step < 0 && lower < upper {
+                    anyhow::bail!(
+                        "The start of the range can't be less than it's end when the step is negative"
+                    );
+                }
+
+                let abs_step = step.unsigned_abs();
+
+                match lower.cmp(&upper) {
+                    std::cmp::Ordering::Equal => Ok(Self::Single(lower)),
+                    std::cmp::Ordering::Less => {
+                        // tighten the upper bound. eg: 0:5:2 becomes 0:4:2
+                        let upper = lower + upper.abs_diff(lower) / abs_step * abs_step;
+                        Ok(Self::Range(lower, upper, abs_step))
+                    }
+                    std::cmp::Ordering::Greater => {
+                        // tighten the upper bound. eg: 0:5:2 becomes 0:4:2
+                        let upper = lower - upper.abs_diff(lower) / abs_step * abs_step;
+                        Ok(Self::Range(upper, lower, abs_step))
+                    }
                 }
             }
         }
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        match self {
-            ParsedLineSelector::Single(_) => 1,
-            ParsedLineSelector::Range(lower, upper) => upper - lower + 1,
-        }
-    }
-
-    pub(crate) fn lower(&self) -> usize {
-        match self {
-            ParsedLineSelector::Single(lower) => *lower,
-            ParsedLineSelector::Range(lower, _) => *lower,
-        }
-    }
-
-    pub(crate) fn upper(&self) -> usize {
-        match self {
-            ParsedLineSelector::Single(upper) => *upper,
-            ParsedLineSelector::Range(_, upper) => *upper,
-        }
-    }
-
-    pub(crate) fn overlap_len(&self, other: &Self) -> usize {
-        let upper = usize::min(self.upper(), other.upper());
-        let lower = usize::max(self.lower(), other.lower());
-        (upper + 1).saturating_sub(lower)
     }
 }
 
@@ -124,9 +142,9 @@ impl Ord for ParsedLineSelector {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (ParsedLineSelector::Single(a), ParsedLineSelector::Single(b)) => a.cmp(b),
-            (ParsedLineSelector::Single(a), ParsedLineSelector::Range(b, _)) => a.cmp(b),
-            (ParsedLineSelector::Range(a, _), ParsedLineSelector::Single(b)) => a.cmp(b),
-            (ParsedLineSelector::Range(a, _), ParsedLineSelector::Range(b, _)) => a.cmp(b),
+            (ParsedLineSelector::Single(a), ParsedLineSelector::Range(b, _, _)) => a.cmp(b),
+            (ParsedLineSelector::Range(a, _, _), ParsedLineSelector::Single(b)) => a.cmp(b),
+            (ParsedLineSelector::Range(a, _, _), ParsedLineSelector::Range(b, _, _)) => a.cmp(b),
         }
     }
 }
@@ -141,6 +159,7 @@ impl PartialOrd for ParsedLineSelector {
 pub(crate) enum OriginalLineSelector {
     Single(isize),
     Range(Option<isize>, Option<isize>),
+    RangeWithStep(Option<isize>, Option<isize>, Option<isize>),
 }
 
 impl OriginalLineSelector {
@@ -152,36 +171,39 @@ impl OriginalLineSelector {
     ///
     /// This method returns an error if: `s` can't be parsed into a number
     pub(crate) fn from_str(s: &str) -> anyhow::Result<Self> {
+        let s = s.trim();
+        if s.is_empty() {
+            anyhow::bail!("Line number can't be empty");
+        }
+
         let parse = |s: &str| {
+            if s.is_empty() {
+                return Ok(None);
+            }
             let num: isize = s
                 .parse()
                 .with_context(|| format!("Value `{s}` is not a number"))?;
-
-            Ok::<_, anyhow::Error>(num)
+            Ok::<_, anyhow::Error>(Some(num))
         };
 
-        let s = s.trim();
-
-        match s.split_once(':') {
-            Some((lower, upper)) => {
-                let lower = if lower.is_empty() {
-                    None
-                } else {
-                    Some(parse(lower)?)
-                };
-
-                let upper = if upper.is_empty() {
-                    None
-                } else {
-                    Some(parse(upper)?)
-                };
-
+        let mut parts = s.splitn(3, ':');
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some(line_num), None, None) => {
+                let line_num = parse(line_num)?.expect("We already checked that `s` is not empty");
+                Ok(Self::Single(line_num))
+            }
+            (Some(lower), Some(upper), None) => {
+                let lower = parse(lower)?;
+                let upper = parse(upper)?;
                 Ok(Self::Range(lower, upper))
             }
-            None => {
-                let num = parse(s)?;
-                Ok(Self::Single(num))
+            (Some(lower), Some(upper), Some(step)) => {
+                let lower = parse(lower)?;
+                let upper = parse(upper)?;
+                let step = parse(step)?;
+                Ok(Self::RangeWithStep(lower, upper, step))
             }
+            _ => unreachable!(),
         }
     }
 }
@@ -196,9 +218,38 @@ impl Display for OriginalLineSelector {
                 (Some(lower), None) => write!(f, "{lower}:"),
                 (Some(lower), Some(upper)) => write!(f, "{lower}:{upper}"),
             },
+            OriginalLineSelector::RangeWithStep(lower, upper, step) => match (lower, upper, step) {
+                (None, None, None) => write!(f, "::"),
+                (None, None, Some(step)) => write!(f, "::{step}"),
+                (None, Some(upper), None) => write!(f, ":{upper}:"),
+                (None, Some(upper), Some(step)) => write!(f, ":{upper}:{step}"),
+                (Some(lower), None, None) => write!(f, "{lower}::"),
+                (Some(lower), None, Some(step)) => write!(f, "{lower}::{step}"),
+                (Some(lower), Some(upper), None) => write!(f, "{lower}:{upper}:"),
+                (Some(lower), Some(upper), Some(step)) => write!(f, "{lower}:{upper}:{step}"),
+            },
         }
     }
 }
+
+// TODO: test the step feature of Range
+// and test all possible combinations of
+// lower:upper:step
+// '1'
+//
+// ':'
+// ':2'
+// '1:'
+// '1:2'
+//
+// '::'
+// '::3'
+// ':2:'
+// ':2:3'
+// '1::'
+// '1::3'
+// '1:2:'
+// '1:2:3'
 
 #[cfg(test)]
 mod tests {
@@ -260,19 +311,19 @@ mod tests {
         fn bounded_range() {
             assert_eq!(
                 create_parsed_line_selector!("-5:2", 5).unwrap(),
-                ParsedLineSelector::Range(0, 1)
+                ParsedLineSelector::Range(0, 1, 1)
             );
             assert_eq!(
                 create_parsed_line_selector!("2:-1", 5).unwrap(),
-                ParsedLineSelector::Range(1, 4)
+                ParsedLineSelector::Range(1, 4, 1)
             );
             assert_eq!(
                 create_parsed_line_selector!("2:5", 5).unwrap(),
-                ParsedLineSelector::Range(1, 4)
+                ParsedLineSelector::Range(1, 4, 1)
             );
             assert_eq!(
                 create_parsed_line_selector!("-5:-1", 5).unwrap(),
-                ParsedLineSelector::Range(0, 4)
+                ParsedLineSelector::Range(0, 4, 1)
             );
         }
 
@@ -280,15 +331,15 @@ mod tests {
         fn unbounded_range() {
             assert_eq!(
                 create_parsed_line_selector!("1:", 5).unwrap(),
-                ParsedLineSelector::Range(0, 4)
+                ParsedLineSelector::Range(0, 4, 1)
             );
             assert_eq!(
                 create_parsed_line_selector!(":5", 5).unwrap(),
-                ParsedLineSelector::Range(0, 4)
+                ParsedLineSelector::Range(0, 4, 1)
             );
             assert_eq!(
                 create_parsed_line_selector!(":", 5).unwrap(),
-                ParsedLineSelector::Range(0, 4)
+                ParsedLineSelector::Range(0, 4, 1)
             );
         }
 
@@ -296,7 +347,7 @@ mod tests {
         fn with_srounding_whitespace() {
             assert_eq!(
                 create_parsed_line_selector!("   1:5 ", 5).unwrap(),
-                ParsedLineSelector::Range(0, 4)
+                ParsedLineSelector::Range(0, 4, 1)
             );
             assert!(OriginalLineSelector::from_str("1: 5").is_err());
             assert!(OriginalLineSelector::from_str("1 :5").is_err());
@@ -306,128 +357,6 @@ mod tests {
         #[test]
         fn not_parsable() {
             assert!(OriginalLineSelector::from_str("a").is_err());
-        }
-    }
-
-    mod len {
-        use super::*;
-
-        #[test]
-        fn single() {
-            assert_eq!(ParsedLineSelector::Single(7).len(), 1);
-        }
-
-        #[test]
-        fn range() {
-            assert_eq!(ParsedLineSelector::Range(3, 7).len(), 5);
-        }
-    }
-
-    mod lower {
-        use super::*;
-
-        #[test]
-        fn single() {
-            assert_eq!(ParsedLineSelector::Single(7).lower(), 7);
-        }
-
-        #[test]
-        fn range() {
-            assert_eq!(ParsedLineSelector::Range(3, 7).lower(), 3);
-        }
-    }
-
-    mod upper {
-        use super::*;
-
-        #[test]
-        fn single() {
-            assert_eq!(ParsedLineSelector::Single(7).upper(), 7);
-        }
-
-        #[test]
-        fn range() {
-            assert_eq!(ParsedLineSelector::Range(3, 7).upper(), 7);
-        }
-    }
-
-    mod overlap_len {
-        use super::*;
-
-        #[test]
-        fn b_lower_is_a_lower() {
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("2", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 1);
-
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("2:5", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 4);
-
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("2:7", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 6);
-
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("2:9", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 6);
-
-            let a = create_parsed_line_selector!("3", 42).unwrap();
-            let b = create_parsed_line_selector!("3", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 1);
-
-            let a = create_parsed_line_selector!("3", 42).unwrap();
-            let b = create_parsed_line_selector!("3:5", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 1);
-        }
-
-        #[test]
-        fn b_lower_is_inside_a() {
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("4", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 1);
-
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("4:6", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 3);
-
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("4:7", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 4);
-
-            let a = create_parsed_line_selector!("2:7", 42).unwrap();
-            let b = create_parsed_line_selector!("4:9", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 4);
-        }
-
-        #[test]
-        fn b_lower_is_a_upper() {
-            let a = create_parsed_line_selector!("2:6", 42).unwrap();
-            let b = create_parsed_line_selector!("6", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 1);
-
-            let a = create_parsed_line_selector!("2:6", 42).unwrap();
-            let b = create_parsed_line_selector!("6:8", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 1);
-        }
-
-        #[test]
-        fn b_lower_is_outside_a() {
-            let a = create_parsed_line_selector!("2:6", 42).unwrap();
-            let b = create_parsed_line_selector!("7", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 0);
-
-            let a = create_parsed_line_selector!("2:6", 42).unwrap();
-            let b = create_parsed_line_selector!("7:9", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 0);
-
-            let a = create_parsed_line_selector!("3", 42).unwrap();
-            let b = create_parsed_line_selector!("5", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 0);
-
-            let a = create_parsed_line_selector!("3", 42).unwrap();
-            let b = create_parsed_line_selector!("5:7", 42).unwrap();
-            assert_eq!(a.overlap_len(&b), 0);
         }
     }
 }
