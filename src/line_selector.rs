@@ -74,11 +74,15 @@ impl ParsedLineSelector {
                 Ok(Self::Single(line_num))
             }
             OriginalLineSelector::Range(lower, upper) => {
-                let lower = lower.map(to_positive_one_based).unwrap_or(Ok(1))?;
-                let upper = upper.map(to_positive_one_based).unwrap_or(Ok(n_lines))?;
+                let lower = lower.map(to_positive_one_based).unwrap_or(Ok(0))?;
+                let upper = upper
+                    .map(to_positive_one_based)
+                    .unwrap_or(Ok(n_lines - 1))?;
+
                 if lower > upper {
                     anyhow::bail!("Lower bound can't be more than upper bound")
                 }
+
                 if lower == upper {
                     Ok(Self::Single(lower))
                 } else {
