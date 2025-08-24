@@ -10,9 +10,9 @@
 
 - [x] support negative indexing (like in Python).
 - [ ] (maybe no need) add a flag to preserve original order.
-- [ ] add syntax for range (eg: -n 1:4 and 1: and :4 and -2: and :-2) just like python.
-- [ ] add syntax for multiple lines (eg: -n 1,4).
-- [ ] support range + multiple lines (eg: -n 1:4,6). one way to implement that is to split on `,` then check if each part has `:` or not and store that in an `enum {Single(isize), Range(std::Range)}` or use a recursive `enum LineSelector {Single(isize), Range(isize, isize or std::Range), Multiple(Vec<LineSelector>)}`.
+- [x] add syntax for range (eg: -n 1:4 and 1: and :4 and -2: and :-2) just like python.
+- [x] add syntax for multiple lines (eg: -n 1,4).
+- [x] support range + multiple lines (eg: -n 1:4,6). one way to implement that is to split on `,` then check if each part has `:` or not and store that in an `enum {Single(isize), Range(std::Range)}` or use a recursive `enum LineSelector {Single(isize), Range(isize, isize or std::Range), Multiple(Vec<LineSelector>)}`.
 - [ ] support steps in range, like in python (eg: -n 1:9:2 or ::-1).
 
 ## Phase 3: Output Enhancements 
@@ -33,7 +33,7 @@
   ]
 }
 ```
-- [ ] add a `---array` flag to output in the format: `["two", "four"]`. Maybe no need for serde here, just use Vec Debug.
+- [ ] add an `--array` flag to output in the format: `["two", "four"]`. Maybe no need for serde here, just use Vec Debug.
 - [ ] add a `--json-line` flag to output in the format:
 ```
 {"number":2,"content":"foo"}
@@ -44,7 +44,7 @@
 
 - [ ] add a flag to print to stderr instead of stdout.
 - [ ] add a flag to use zero index.
-- [ ] read from stdin if no file was passed (and maybe support `-` as file).
+- [ ] (important) read from stdin if no file was passed (and maybe support `-` as file).
 - [ ] make a `--quiet` flag to suppress warnings.
 - [ ] create custom error enum.
 
