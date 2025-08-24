@@ -189,9 +189,3 @@ MIT
 
 Feel free to open issues or suggestions on [GitHub](https://github.com/yourname/line-rs).
 
-```
-
-Let me know if you'd like me to add sections for contributing, testing, or packaging (e.g., Debian, Homebrew, etc).
-```
-
-

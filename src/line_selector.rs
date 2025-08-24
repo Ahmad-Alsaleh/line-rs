@@ -156,16 +156,16 @@ impl OriginalLineSelector {
             Ok::<_, anyhow::Error>(num)
         };
 
+        let s = s.trim();
+
         match s.split_once(':') {
             Some((lower, upper)) => {
-                let lower = lower.trim();
                 let lower = if lower.is_empty() {
                     None
                 } else {
                     Some(parse(lower)?)
                 };
 
-                let upper = upper.trim();
                 let upper = if upper.is_empty() {
                     None
                 } else {
@@ -175,7 +175,7 @@ impl OriginalLineSelector {
                 Ok(Self::Range(lower, upper))
             }
             None => {
-                let num = parse(s.trim())?;
+                let num = parse(s)?;
                 Ok(Self::Single(num))
             }
         }

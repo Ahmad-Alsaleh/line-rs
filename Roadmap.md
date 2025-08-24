@@ -9,7 +9,7 @@
 ## Phase 2: Line Selection
 
 - [x] support negative indexing (like in Python).
-- [ ] add a flag to preserve original order.
+- [ ] (maybe no need) add a flag to preserve original order.
 - [ ] add syntax for range (eg: -n 1:4 and 1: and :4 and -2: and :-2) just like python.
 - [ ] add syntax for multiple lines (eg: -n 1,4).
 - [ ] support range + multiple lines (eg: -n 1:4,6). one way to implement that is to split on `,` then check if each part has `:` or not and store that in an `enum {Single(isize), Range(std::Range)}` or use a recursive `enum LineSelector {Single(isize), Range(isize, isize or std::Range), Multiple(Vec<LineSelector>)}`.
