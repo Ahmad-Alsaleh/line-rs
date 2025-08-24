@@ -42,6 +42,7 @@ fn main() -> Result<()> {
 
     if n_lines == 0 {
         if !args.plain {
+            // TODO: use pretty printing here
             println!("--- EMPTY FILE ---");
         }
         return Ok(());
@@ -87,6 +88,12 @@ fn main() -> Result<()> {
             }
         }
     }
+
+    continue from here
+
+    // FIXME: I switched the order of upper and lower when step < 0,
+    // now the numbers will be printed in reverse order compared to
+    // what the user wanted
 
     // print selected lines
     for line_selector in line_selectors {
