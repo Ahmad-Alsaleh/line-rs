@@ -1,4 +1,5 @@
 use anyhow::Context;
+use core::panic;
 use std::fmt::{Debug, Display};
 
 #[derive(Clone, PartialEq, Eq)]
@@ -279,6 +280,48 @@ mod tests {
         #[test]
         fn not_parsable() {
             assert!(OriginalLineSelector::from_str("a").is_err());
+        }
+    }
+
+    mod len {
+        use super::*;
+
+        #[test]
+        fn single() {
+            assert_eq!(ParsedLineSelector::Single(7).len(), 1);
+        }
+
+        #[test]
+        fn range() {
+            assert_eq!(ParsedLineSelector::Range(3, 7).len(), 5);
+        }
+    }
+
+    mod lower {
+        use super::*;
+
+        #[test]
+        fn single() {
+            assert_eq!(ParsedLineSelector::Single(7).lower(), 7);
+        }
+
+        #[test]
+        fn range() {
+            assert_eq!(ParsedLineSelector::Range(3, 7).lower(), 3);
+        }
+    }
+
+    mod upper {
+        use super::*;
+
+        #[test]
+        fn single() {
+            assert_eq!(ParsedLineSelector::Single(7).upper(), 7);
+        }
+
+        #[test]
+        fn range() {
+            assert_eq!(ParsedLineSelector::Range(3, 7).upper(), 7);
         }
     }
 
