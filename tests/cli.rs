@@ -280,74 +280,49 @@ fn unbounded_lower_and_upper() {
         .stdout("one\ntwo\nthree");
 }
 
-// TODO: test the -p flag (with and without it)
-// TODO: test all new added features (eg unbound ranges etc). read the code to know
+#[test]
+fn ranges_with_single_lines() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
 
-// -----
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("1,1:3,1:1")
+        .arg("--plain")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("one\none\ntwo\nthree\none\n");
+}
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn single_number() {
-//         let args = Cli::parse_from([".", "--line", "1", "file"]);
-//         assert_eq!(*args.line_nums, [LineSelector::Single(Number::Positive(1))]);
-//     }
-//
-//     #[test]
-//     fn multiple_numbers() {
-//         let args = Cli::parse_from([".", "--line", "1,2:3,4:4", "file"]);
-//         assert_eq!(
-//             *args.line_nums,
-//             [
-//                 LineSelector::Single(Number::Positive(1)),
-//                 LineSelector::Range(Number::Positive(2), Number::Positive(3)),
-//                 LineSelector::Single(Number::Positive(4)),
-//             ]
-//         );
-//     }
-//
-//     #[test]
-//     fn line_number_is_zero() {
-//         let err = Cli::try_parse_from([".", "--line", "0", "file"]).unwrap_err();
-//         // TODO: replace the below with a custom error. e.g.: LineSelectorError::ZeroLine
-//         assert_eq!(
-//             err.source().unwrap().to_string(),
-//             "Line number can't be zero"
-//         );
-//     }
-//
-//     // TODO: add `space_around_colon` test
-//
-//     #[test]
-//     fn space_around_comma() {
-//         let args = Cli::parse_from([".", "--line", "1, 2,3 ,4 , 5", "file"]);
-//         assert_eq!(
-//             *args.line_nums,
-//             [
-//                 LineSelector::Single(Number::Positive(1)),
-//                 LineSelector::Single(Number::Positive(2)),
-//                 LineSelector::Single(Number::Positive(3)),
-//                 LineSelector::Single(Number::Positive(4)),
-//                 LineSelector::Single(Number::Positive(5)),
-//             ]
-//         )
-//     }
-//
-//     #[test]
-//     fn lower_bound_equals_upper_bound() {
-//         let args = Cli::parse_from([".", "--line", "4:4", "file"]);
-//         assert_eq!(*args.line_nums, [LineSelector::Single(Number::Positive(4))])
-//     }
-//
-//     #[test]
-//     fn lower_bound_more_than_upper_bound() {
-//         let err = Cli::try_parse_from([".", "--line", "5:4", "file"]).unwrap_err();
-//         // TODO: replace the below with a custom error. e.g.: LineSelectorError::InvertedRange
-//         assert_eq!(
-//             err.source().unwrap().to_string(),
-//             "Lower bound can't be more than the upper bound: `5:4`"
-//         );
-//     }
-// }
+#[test]
+fn space_around_comma() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("1, 2,3 ,2 , 1")
+        .arg("--plain")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("one\ntwo\nthree\ntwo\none\n");
+}
+
+#[test]
+fn lower_bound_more_than_upper_bound() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("3:2")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr("Error: Invalid line selector: 3:2\n\nCaused by:\n    Lower bound can\'t be more than upper bound\n");
+}
