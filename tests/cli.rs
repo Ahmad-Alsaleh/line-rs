@@ -53,7 +53,7 @@ fn extract_last_line() {
 #[test]
 fn line_num_is_zero() {
     let file = NamedTempFile::new("file").unwrap();
-    file.touch().unwrap();
+    file.write_str("one\ntwo\nthree").unwrap();
 
     Command::cargo_bin(BIN_NAME)
         .unwrap()
@@ -208,8 +208,17 @@ fn empty_file() {
         .arg("-n=1")
         .arg(file.path())
         .assert()
-        .failure()
-        .stderr( "Error: Invalid line selector: 1\n\nCaused by:\n    Line 1 is out of bound, input has 0 line(s) only\n");
+        .success()
+        .stdout("--- EMPTY FILE ---\n");
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=1")
+        .arg("--plain")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("");
 }
 
 // -----

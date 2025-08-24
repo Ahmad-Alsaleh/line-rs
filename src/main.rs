@@ -40,6 +40,13 @@ fn main() -> Result<()> {
 
     let n_lines = count_lines_and_rewind(&mut file)?;
 
+    if n_lines == 0 {
+        if !args.plain {
+            println!("--- EMPTY FILE ---");
+        }
+        return Ok(());
+    }
+
     // parse line selectors from cli args
     let line_selectors: anyhow::Result<Box<[_]>> = args
         .original_line_selectors
