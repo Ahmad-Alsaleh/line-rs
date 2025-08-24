@@ -221,6 +221,20 @@ fn empty_file() {
         .stdout("");
 }
 
+#[test]
+fn without_plain_flag() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=-3")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("-3\none\n");
+}
+
 // -----
 
 // #[cfg(test)]
