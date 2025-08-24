@@ -235,6 +235,54 @@ fn without_plain_flag() {
         .stdout("-3\none\n");
 }
 
+#[test]
+fn unbounded_lower() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=:-2")
+        .arg("--plain")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("one\ntwo\n");
+}
+
+#[test]
+fn unbounded_upper() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=-2:")
+        .arg("--plain")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("two\nthree");
+}
+
+#[test]
+fn unbounded_lower_and_upper() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=:")
+        .arg("--plain")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("one\ntwo\nthree");
+}
+
+// TODO: test the -p flag (with and without it)
+// TODO: test all new added features (eg unbound ranges etc). read the code to know
+
 // -----
 
 // #[cfg(test)]
