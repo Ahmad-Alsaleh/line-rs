@@ -1,5 +1,4 @@
 use anyhow::Context;
-use core::panic;
 use std::fmt::{Debug, Display};
 
 #[derive(Clone, PartialEq, Eq)]
@@ -258,7 +257,7 @@ mod tests {
         }
 
         #[test]
-        fn range() {
+        fn bounded_range() {
             assert_eq!(
                 create_parsed_line_selector!("-5:2", 5).unwrap(),
                 ParsedLineSelector::Range(0, 1)
@@ -275,6 +274,33 @@ mod tests {
                 create_parsed_line_selector!("-5:-1", 5).unwrap(),
                 ParsedLineSelector::Range(0, 4)
             );
+        }
+
+        #[test]
+        fn unbounded_range() {
+            assert_eq!(
+                create_parsed_line_selector!("1:", 5).unwrap(),
+                ParsedLineSelector::Range(0, 4)
+            );
+            assert_eq!(
+                create_parsed_line_selector!(":5", 5).unwrap(),
+                ParsedLineSelector::Range(0, 4)
+            );
+            assert_eq!(
+                create_parsed_line_selector!(":", 5).unwrap(),
+                ParsedLineSelector::Range(0, 4)
+            );
+        }
+
+        #[test]
+        fn with_srounding_whitespace() {
+            assert_eq!(
+                create_parsed_line_selector!("   1:5 ", 5).unwrap(),
+                ParsedLineSelector::Range(0, 4)
+            );
+            assert!(OriginalLineSelector::from_str("1: 5").is_err());
+            assert!(OriginalLineSelector::from_str("1 :5").is_err());
+            assert!(OriginalLineSelector::from_str("1 : 5").is_err());
         }
 
         #[test]
