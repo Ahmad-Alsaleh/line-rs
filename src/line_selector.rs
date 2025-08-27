@@ -155,12 +155,15 @@ impl ParsedLineSelector {
 
 impl Ord for ParsedLineSelector {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self, other) {
-            (ParsedLineSelector::Single(a), ParsedLineSelector::Single(b)) => a.cmp(b),
-            (ParsedLineSelector::Single(a), ParsedLineSelector::Range(b, _, _)) => a.cmp(b),
-            (ParsedLineSelector::Range(a, _, _), ParsedLineSelector::Single(b)) => a.cmp(b),
-            (ParsedLineSelector::Range(a, _, _), ParsedLineSelector::Range(b, _, _)) => a.cmp(b),
-        }
+        let a = match self {
+            ParsedLineSelector::Single(line_num) => line_num,
+            ParsedLineSelector::Range(lower, upper, _) => lower.min(upper),
+        };
+        let b = match other {
+            ParsedLineSelector::Single(line_num) => line_num,
+            ParsedLineSelector::Range(lower, upper, _) => lower.min(upper),
+        };
+        a.cmp(b)
     }
 }
 
