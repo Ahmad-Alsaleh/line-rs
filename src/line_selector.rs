@@ -37,9 +37,14 @@ pub(crate) enum ParsedLineSelector {
     /// Note that the line number is zero-based.
     Single(usize),
 
-    /// Stores the lower bound, upper bound , and step of a line selector.
+    /// Stores the lower bound, the upper bound, and the step of a line selector.
     /// Note that lower and upper bounds are zero-based and both ends are inclusive.
-    Range(usize, usize, usize),
+    ///
+    /// Examples
+    ///
+    /// `Range(1, 5, 2)` represents the lines 1, 3, and 5.
+    /// `Range(8, 2, -3)` represents the lines 8, 5, and 2.
+    Range(usize, usize, isize),
 }
 
 impl ParsedLineSelector {
@@ -48,6 +53,12 @@ impl ParsedLineSelector {
     ///
     /// `n_lines` is the number of lines in a file, it will be used to convert negative numbers
     /// and unbounded ranges and to check if the parsed line number is out of bound.
+    ///
+    /// Notes:
+    ///
+    /// Ranges with steps will be internally stored in a tightened format. For example, `1:6:2`
+    /// represents the numbers 1, 3, and 5. Thus, `1:6:2` will be represented as `Range(1, 5, 2)`
+    /// instead of `Range(1, 6, 2)`.
     ///
     /// Errors:
     ///
@@ -120,17 +131,21 @@ impl ParsedLineSelector {
 
                 let abs_step = step.unsigned_abs();
 
+                // TODO: benchmark whether using `upper -/+ upper.abs_diff(lower) % abs_step` is
+                // more effecient than `lower +/- upper.abs_diff(lower) / abs_step * abs_step`
                 match lower.cmp(&upper) {
                     std::cmp::Ordering::Equal => Ok(Self::Single(lower)),
                     std::cmp::Ordering::Less => {
                         // tighten the upper bound. eg: 0:5:2 becomes 0:4:2
                         let upper = lower + upper.abs_diff(lower) / abs_step * abs_step;
-                        Ok(Self::Range(lower, upper, abs_step))
+                        Ok(Self::Range(lower, upper, step))
                     }
                     std::cmp::Ordering::Greater => {
-                        // tighten the upper bound. eg: 0:5:2 becomes 0:4:2
+                        // tighten the upper bound. eg: 5:0:-2 becomes 5:1:-2
                         let upper = lower - upper.abs_diff(lower) / abs_step * abs_step;
-                        Ok(Self::Range(upper, lower, abs_step))
+                        // TODO: rename every lower/upper to start/end since lower can be greater
+                        // than upper when step is negative, which can confusing :(
+                        Ok(Self::Range(lower, upper, step))
                     }
                 }
             }
