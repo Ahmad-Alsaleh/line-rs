@@ -3,8 +3,8 @@ use crate::line_reader::LineReader;
 use crate::line_selector::{LineSelector, ParsedLineSelector};
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
@@ -42,6 +42,7 @@ fn main() -> Result<()> {
 
     if n_lines == 0 {
         if !args.plain {
+            // TODO: use pretty printing here
             println!("--- EMPTY FILE ---");
         }
         return Ok(());
@@ -65,8 +66,7 @@ fn main() -> Result<()> {
 
     // TODO: benchmark to check if using a Vec + binary search is better than using a hash map
     // read and store selected lines
-    let mut lines: HashMap<usize, Vec<u8>> =
-        HashMap::with_capacity(n_selected_lines(&sorted_line_selectors));
+    let mut lines: HashMap<usize, Vec<u8>> = HashMap::new();
     for line_selector in sorted_line_selectors {
         match line_selector.parsed {
             ParsedLineSelector::Single(line_num) => {
@@ -108,15 +108,6 @@ fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-fn n_selected_lines(sorted_line_selectors: &[LineSelector]) -> usize {
-    let mut count = sorted_line_selectors[0].parsed.len();
-    for window in sorted_line_selectors.windows(2) {
-        let (prev, curr) = (&window[0].parsed, &window[1].parsed);
-        count += curr.len() - curr.overlap_len(prev);
-    }
-    count
 }
 
 fn print_line(line: &[u8]) -> anyhow::Result<()> {
