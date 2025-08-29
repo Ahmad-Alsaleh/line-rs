@@ -82,18 +82,22 @@ fn main() -> Result<()> {
     for line_selector in sorted_line_selectors {
         match line_selector.parsed {
             ParsedLineSelector::Single(line_num) => {
-                if let Entry::Vacant(e) = lines.entry(line_num) {
-                    let mut line_buf = Vec::new();
-                    read_line(&mut line_buf, line_num, &mut line_reader)?;
-                    e.insert(line_buf);
+                if let Entry::Vacant(entry) = lines.entry(line_num) {
+                    let line = read_line(&mut line_reader, line_num)?;
+                    entry.insert(line);
                 }
             }
-            ParsedLineSelector::Range(lower, upper) => {
-                for line_num in lower..=upper {
-                    if let Entry::Vacant(e) = lines.entry(line_num) {
-                        let mut line_buf = Vec::new();
-                        read_line(&mut line_buf, line_num, &mut line_reader)?;
-                        e.insert(line_buf);
+            ParsedLineSelector::Range(lower, upper, step) => {
+                let line_nums = if step > 0 {
+                    (lower..=upper).step_by(step.unsigned_abs())
+                } else {
+                    (upper..=lower).step_by(step.unsigned_abs())
+                };
+
+                for line_num in line_nums {
+                    if let Entry::Vacant(entry) = lines.entry(line_num) {
+                        let line = read_line(&mut line_reader, line_num)?;
+                        entry.insert(line);
                     }
                 }
             }
@@ -107,13 +111,21 @@ fn main() -> Result<()> {
         }
         match line_selector.parsed {
             ParsedLineSelector::Single(line_num) => {
-                let line = &lines[&line_num];
-                print_line(line)?;
+                print_line(&lines[&line_num])?;
             }
-            ParsedLineSelector::Range(lower, upper) => {
-                for line_num in lower..=upper {
-                    let line = &lines[&line_num];
-                    print_line(line)?;
+            ParsedLineSelector::Range(lower, upper, step) => {
+                let abs_step = step.unsigned_abs();
+                let mut curr = lower;
+                if step > 0 {
+                    while curr <= upper {
+                        print_line(&lines[&curr])?;
+                        curr += abs_step;
+                    }
+                } else {
+                    while curr >= upper {
+                        print_line(&lines[&curr])?;
+                        curr -= abs_step;
+                    }
                 }
             }
         }
@@ -154,13 +166,14 @@ fn open_file(path: &Path) -> Result<File> {
 
 /// Note: `line_num` should be zero-based
 fn read_line<R: BufRead>(
-    buf: &mut Vec<u8>,
-    line_num: usize,
     line_reader: &mut LineReader<R>,
-) -> anyhow::Result<()> {
+    line_num: usize,
+) -> anyhow::Result<Vec<u8>> {
+    let mut lin_buf = Vec::new();
     line_reader
-        .read_specific_line(buf, line_num)
-        .with_context(|| format!("Failed to read line number {line_num}"))
+        .read_specific_line(&mut lin_buf, line_num)
+        .with_context(|| format!("Failed to read line number {line_num}"))?;
+    Ok(lin_buf)
 }
 
 #[cfg(test)]

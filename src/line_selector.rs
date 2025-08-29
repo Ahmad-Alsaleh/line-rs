@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display};
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct LineSelector {
     pub(crate) parsed: ParsedLineSelector,
+    // TODO: i don't think there is a need to store the original anymore
     pub(crate) original: OriginalLineSelector, // used for pretty printing
 }
 
