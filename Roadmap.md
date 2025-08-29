@@ -13,7 +13,7 @@
 - [x] add syntax for range (eg: -n 1:4 and 1: and :4 and -2: and :-2) just like python.
 - [x] add syntax for multiple lines (eg: -n 1,4).
 - [x] support range + multiple lines (eg: -n 1:4,6). one way to implement that is to split on `,` then check if each part has `:` or not and store that in an `enum {Single(isize), Range(std::Range)}` or use a recursive `enum LineSelector {Single(isize), Range(isize, isize or std::Range), Multiple(Vec<LineSelector>)}`.
-- [ ] support steps in range, like in python (eg: -n 1:9:2 or ::-1).
+- [x] support steps in range, like in python (eg: -n 1:9:2 or ::-1).
 
 ## Phase 3: Output Enhancements 
 
