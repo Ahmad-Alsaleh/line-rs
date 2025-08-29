@@ -232,7 +232,7 @@ fn without_plain_flag() {
         .arg(file.path())
         .assert()
         .success()
-        .stdout("-3\none\n");
+        .stdout("one\n");
 }
 
 #[test]

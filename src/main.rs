@@ -1,6 +1,6 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
-use crate::line_selector::{LineSelector, ParsedLineSelector};
+use crate::line_selector::ParsedLineSelector;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::collections::HashMap;
@@ -65,7 +65,7 @@ fn main() -> Result<()> {
         .original_line_selectors
         .into_iter()
         .map(|original_line_selector| {
-            LineSelector::from_original(original_line_selector, n_lines)
+            ParsedLineSelector::from_original(original_line_selector, n_lines)
                 .with_context(|| format!("Invalid line selector: {original_line_selector}"))
         })
         .collect();
@@ -80,7 +80,7 @@ fn main() -> Result<()> {
     // read and store selected lines
     let mut lines: HashMap<usize, Vec<u8>> = HashMap::new();
     for line_selector in sorted_line_selectors {
-        match line_selector.parsed {
+        match line_selector {
             ParsedLineSelector::Single(line_num) => {
                 if let Entry::Vacant(entry) = lines.entry(line_num) {
                     let line = read_line(&mut line_reader, line_num)?;
@@ -106,10 +106,7 @@ fn main() -> Result<()> {
 
     // print selected lines
     for line_selector in line_selectors {
-        if !args.plain {
-            println!("{}", line_selector.original);
-        }
-        match line_selector.parsed {
+        match line_selector {
             ParsedLineSelector::Single(line_num) => {
                 print_line(&lines[&line_num])?;
             }

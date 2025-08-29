@@ -1,37 +1,6 @@
 use anyhow::Context;
 use std::fmt::{Debug, Display};
 
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) struct LineSelector {
-    pub(crate) parsed: ParsedLineSelector,
-    // TODO: i don't think there is a need to store the original anymore
-    pub(crate) original: OriginalLineSelector, // used for pretty printing
-}
-
-impl LineSelector {
-    pub(crate) fn from_original(
-        original: OriginalLineSelector,
-        n_lines: usize,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {
-            parsed: ParsedLineSelector::from_original(original, n_lines)?,
-            original,
-        })
-    }
-}
-
-impl Ord for LineSelector {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.parsed.cmp(&other.parsed)
-    }
-}
-
-impl PartialOrd for LineSelector {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ParsedLineSelector {
     /// Stores a single line selector.
@@ -67,7 +36,10 @@ impl ParsedLineSelector {
     /// 1. `original` contains a zero (`original` is one-based and can't contain zero)
     /// 2. `original` contains a number that's beyond the limits of the file (i.e.: not between -n_lines and n_lines)
     /// 3. `original` is a range and the lower bound is larger than the upper bound (e.g.: `5:3`)
-    fn from_original(original: OriginalLineSelector, n_lines: usize) -> anyhow::Result<Self> {
+    pub(crate) fn from_original(
+        original: OriginalLineSelector,
+        n_lines: usize,
+    ) -> anyhow::Result<Self> {
         let to_positive_one_based = |num: isize| {
             if num == 0 {
                 anyhow::bail!("Line number can't be zero");
