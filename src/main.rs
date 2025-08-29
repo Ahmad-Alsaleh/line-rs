@@ -23,7 +23,9 @@ fn main() -> Result<()> {
     if !args.allow_binary_files {
         // binary files aren't allowed, check if the file is binary
         let mut first_few_bytes = [0; 128];
-        let n = file.read(&mut first_few_bytes)?;
+        let n = file
+            .read(&mut first_few_bytes)
+            .context("Failed to read from file")?;
 
         // file is empty, return early
         if n == 0 {
@@ -42,12 +44,16 @@ fn main() -> Result<()> {
         }
 
         // count the number of lines in the first few bytes
-        while first_few_bytes.skip_until(b'\n')? > 0 {
+        while first_few_bytes
+            .skip_until(b'\n')
+            .context("Failed to read from file")?
+            > 0
+        {
             n_lines += 1;
         }
     }
     // count the number of lines in the remainder of the file
-    while file.skip_until(b'\n')? > 0 {
+    while file.skip_until(b'\n').context("Failed to read from file")? > 0 {
         n_lines += 1;
     }
     // TODO: support seek for stdin https://github.com/rust-lang/rust/issues/72802#issuecomment-1101996578
