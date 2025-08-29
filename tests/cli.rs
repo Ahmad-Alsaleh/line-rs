@@ -77,7 +77,7 @@ fn rejects_binary_file_without_flag() {
         .assert()
         .failure()
         .stderr(predicates::str::ends_with(
-            "binrary file. Use `--allow-binary-files` to suppress this error\n",
+            "binrary file, use `--allow-binary-files` to suppress this error\n",
         ));
 }
 
@@ -324,5 +324,14 @@ fn lower_bound_more_than_upper_bound() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 3:2\n\nCaused by:\n    Lower bound can\'t be more than upper bound\n");
+        .stderr("Error: Invalid line selector: 3:2\n\nCaused by:\n    The start of the range can't be more than it's end when the step is positive\n");
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("1:3:-1")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr("Error: Invalid line selector: 1:3:-1\n\nCaused by:\n    The start of the range can't be less than it's end when the step is negative\n");
 }
