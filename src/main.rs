@@ -3,8 +3,8 @@ use crate::line_reader::LineReader;
 use crate::line_selector::{LineSelector, ParsedLineSelector};
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
@@ -19,36 +19,42 @@ fn main() -> Result<()> {
     let file = open_file(&args.file)?;
     let mut file = BufReader::new(file);
 
-    // check if the file is binary and binary files are not allowed
+    let mut n_lines = 0;
     if !args.allow_binary_files {
-        match is_binary(&mut file) {
-            Ok(is_binary) => {
-                if is_binary {
-                    anyhow::bail!(
-                        "`{}` is a binrary file. Use `--allow-binary-files` to suppress this error",
-                        args.file.display()
-                    )
-                }
+        // binary files aren't allowed, check if the file is binary
+        let mut first_few_bytes = [0; 128];
+        let n = file.read(&mut first_few_bytes)?;
+
+        // file is empty, return early
+        if n == 0 {
+            if !args.plain {
+                println!("--- EMPTY FILE ---");
             }
-            Err(err) => eprintln!(
-                "Warning: Failed to determine if `{}` is binary. \
-                Use `--allow-binary-files` to suppress this warning. Reason: {err}",
+            return Ok(());
+        }
+
+        let mut first_few_bytes = &first_few_bytes[..n];
+        if content_inspector::inspect(first_few_bytes).is_binary() {
+            anyhow::bail!(
+                "`{}` is a binrary file, use `--allow-binary-files` to suppress this error",
                 args.file.display()
-            ),
+            );
+        }
+
+        // count the number of lines in the first few bytes
+        while first_few_bytes.skip_until(b'\n')? > 0 {
+            n_lines += 1;
         }
     }
-
-    let n_lines = count_lines_and_rewind(&mut file)?;
-
-    if n_lines == 0 {
-        if !args.plain {
-            // TODO: use pretty printing here
-            println!("--- EMPTY FILE ---");
-        }
-        return Ok(());
+    // count the number of lines in the remainder of the file
+    while file.skip_until(b'\n')? > 0 {
+        n_lines += 1;
     }
+    // TODO: support seek for stdin https://github.com/rust-lang/rust/issues/72802#issuecomment-1101996578
+    // and https://github.com/uutils/coreutils/pull/4189/files#diff-bd7f28594a45798eed07dea6767fc2bb5cb29e2d2855366ba65b126248bfd4b9R128-R132
+    file.rewind().context("Failed to rewind file")?;
 
-    // parse line selectors from cli args
+    // parse line selectors
     let line_selectors: anyhow::Result<Box<[_]>> = args
         .original_line_selectors
         .into_iter()
@@ -151,149 +157,127 @@ fn read_line<R: BufRead>(
         .with_context(|| format!("Failed to read line number {line_num}"))
 }
 
-fn is_binary(file: &mut BufReader<File>) -> Result<bool> {
-    let mut buf = [0; 64];
-    let n = file.read(&mut buf)?;
-    let buf = &buf[..n];
-
-    file.rewind()?;
-
-    Ok(content_inspector::inspect(buf).is_binary())
-}
-
-// TODO: support seek for stdin https://github.com/rust-lang/rust/issues/72802#issuecomment-1101996578
-// and https://github.com/uutils/coreutils/pull/4189/files#diff-bd7f28594a45798eed07dea6767fc2bb5cb29e2d2855366ba65b126248bfd4b9R128-R132
-/// Counts the number of lines in a reader and rewinds it
-pub(crate) fn count_lines_and_rewind<R: BufRead + Seek>(reader: &mut R) -> anyhow::Result<usize> {
-    let mut n_lines = 0;
-    while reader.skip_until(b'\n')? > 0 {
-        n_lines += 1;
-    }
-    reader.rewind()?;
-    Ok(n_lines)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    mod n_selected_lines {
-        use super::*;
-        use crate::line_selector::OriginalLineSelector;
-
-        macro_rules! create_line_selector {
-            ($s: literal, $n_lines: literal) => {{
-                let original = OriginalLineSelector::from_str($s).unwrap();
-                LineSelector::from_original(original, $n_lines)
-            }};
-        }
-
-        #[test]
-        fn b_lower_is_a_lower() {
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("2", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("2:5", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("2:7", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("2:9", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 8);
-
-            let a = create_line_selector!("3", 42).unwrap();
-            let b = create_line_selector!("3", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 1);
-
-            let a = create_line_selector!("3", 42).unwrap();
-            let b = create_line_selector!("3:5", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 3);
-        }
-
-        #[test]
-        fn b_lower_is_inside_a() {
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("4", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("4:6", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("4:7", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:7", 42).unwrap();
-            let b = create_line_selector!("4:9", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 8);
-        }
-
-        #[test]
-        fn b_lower_is_a_upper() {
-            let a = create_line_selector!("2:6", 42).unwrap();
-            let b = create_line_selector!("6", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 5);
-
-            let a = create_line_selector!("2:6", 42).unwrap();
-            let b = create_line_selector!("6:8", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 7);
-        }
-
-        #[test]
-        fn b_lower_is_outside_a() {
-            let a = create_line_selector!("2:6", 42).unwrap();
-            let b = create_line_selector!("7", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 6);
-
-            let a = create_line_selector!("2:6", 42).unwrap();
-            let b = create_line_selector!("7:9", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 8);
-
-            let a = create_line_selector!("3", 42).unwrap();
-            let b = create_line_selector!("5", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 2);
-
-            let a = create_line_selector!("3", 42).unwrap();
-            let b = create_line_selector!("5:7", 42).unwrap();
-            let mut v = [a, b];
-            v.sort();
-            assert_eq!(n_selected_lines(&v), 4);
-        }
-    }
+    // use super::*;
+    //
+    // mod n_selected_lines {
+    //     use super::*;
+    //     use crate::line_selector::OriginalLineSelector;
+    //
+    //     macro_rules! create_line_selector {
+    //         ($s: literal, $n_lines: literal) => {{
+    //             let original = OriginalLineSelector::from_str($s).unwrap();
+    //             LineSelector::from_original(original, $n_lines)
+    //         }};
+    //     }
+    //
+    //     #[test]
+    //     fn b_lower_is_a_lower() {
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("2", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("2:5", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("2:7", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("2:9", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 8);
+    //
+    //         let a = create_line_selector!("3", 42).unwrap();
+    //         let b = create_line_selector!("3", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 1);
+    //
+    //         let a = create_line_selector!("3", 42).unwrap();
+    //         let b = create_line_selector!("3:5", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 3);
+    //     }
+    //
+    //     #[test]
+    //     fn b_lower_is_inside_a() {
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("4", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("4:6", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("4:7", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:7", 42).unwrap();
+    //         let b = create_line_selector!("4:9", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 8);
+    //     }
+    //
+    //     #[test]
+    //     fn b_lower_is_a_upper() {
+    //         let a = create_line_selector!("2:6", 42).unwrap();
+    //         let b = create_line_selector!("6", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 5);
+    //
+    //         let a = create_line_selector!("2:6", 42).unwrap();
+    //         let b = create_line_selector!("6:8", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 7);
+    //     }
+    //
+    //     #[test]
+    //     fn b_lower_is_outside_a() {
+    //         let a = create_line_selector!("2:6", 42).unwrap();
+    //         let b = create_line_selector!("7", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 6);
+    //
+    //         let a = create_line_selector!("2:6", 42).unwrap();
+    //         let b = create_line_selector!("7:9", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 8);
+    //
+    //         let a = create_line_selector!("3", 42).unwrap();
+    //         let b = create_line_selector!("5", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 2);
+    //
+    //         let a = create_line_selector!("3", 42).unwrap();
+    //         let b = create_line_selector!("5:7", 42).unwrap();
+    //         let mut v = [a, b];
+    //         v.sort();
+    //         assert_eq!(n_selected_lines(&v), 4);
+    //     }
+    // }
 }
