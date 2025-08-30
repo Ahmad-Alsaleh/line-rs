@@ -87,11 +87,11 @@ fn main() -> Result<()> {
                     entry.insert(line);
                 }
             }
-            ParsedLineSelector::Range(lower, upper, step) => {
+            ParsedLineSelector::Range(start, end, step) => {
                 let line_nums = if step > 0 {
-                    (lower..=upper).step_by(step.unsigned_abs())
+                    (start..=end).step_by(step.unsigned_abs())
                 } else {
-                    (upper..=lower).step_by(step.unsigned_abs())
+                    (end..=start).step_by(step.unsigned_abs())
                 };
 
                 for line_num in line_nums {
@@ -110,16 +110,16 @@ fn main() -> Result<()> {
             ParsedLineSelector::Single(line_num) => {
                 print_line(&lines[&line_num])?;
             }
-            ParsedLineSelector::Range(lower, upper, step) => {
+            ParsedLineSelector::Range(start, end, step) => {
                 let abs_step = step.unsigned_abs();
-                let mut curr = lower;
+                let mut curr = start;
                 if step > 0 {
-                    while curr <= upper {
+                    while curr <= end {
                         print_line(&lines[&curr])?;
                         curr += abs_step;
                     }
                 } else {
-                    while curr >= upper {
+                    while curr >= end {
                         print_line(&lines[&curr])?;
                         curr -= abs_step;
                     }

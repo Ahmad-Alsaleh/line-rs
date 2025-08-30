@@ -236,7 +236,7 @@ fn without_plain_flag() {
 }
 
 #[test]
-fn unbounded_lower() {
+fn unbounded_start() {
     let file = NamedTempFile::new("file").unwrap();
     file.write_str("one\ntwo\nthree").unwrap();
 
@@ -251,7 +251,7 @@ fn unbounded_lower() {
 }
 
 #[test]
-fn unbounded_upper() {
+fn unbounded_end() {
     let file = NamedTempFile::new("file").unwrap();
     file.write_str("one\ntwo\nthree").unwrap();
 
@@ -266,7 +266,7 @@ fn unbounded_upper() {
 }
 
 #[test]
-fn unbounded_lower_and_upper() {
+fn unbounded_start_and_end() {
     let file = NamedTempFile::new("file").unwrap();
     file.write_str("one\ntwo\nthree").unwrap();
 
@@ -313,7 +313,7 @@ fn space_around_comma() {
 }
 
 #[test]
-fn lower_bound_more_than_upper_bound() {
+fn start_more_than_end() {
     let file = NamedTempFile::new("file").unwrap();
     file.write_str("one\ntwo\nthree\n").unwrap();
 

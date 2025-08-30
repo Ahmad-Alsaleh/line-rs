@@ -3,14 +3,13 @@ use std::fmt::{Debug, Display};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ParsedLineSelector {
-    /// Stores a single line selector.
-    /// Note that the line number is zero-based.
+    /// Single line number (zero-based)
     Single(usize),
 
-    /// Stores the lower bound, the upper bound, and the step of a line selector.
-    /// Note that lower and upper bounds are zero-based and both ends are inclusive.
+    /// Stores the start, the end, and the step of a line selector.
+    /// Note that start and end are zero-based and both ends are inclusive.
     ///
-    /// Examples
+    /// # Examples
     ///
     /// `Range(1, 5, 2)` represents the lines 1, 3, and 5.
     /// `Range(8, 2, -3)` represents the lines 8, 5, and 2.
@@ -18,24 +17,24 @@ pub(crate) enum ParsedLineSelector {
 }
 
 impl ParsedLineSelector {
-    /// Parses `original` as a zero-based line number, converting negative line numbers and
+    /// Parses `original` as a zero-based line number, normalizing negative line numbers and
     /// unbounded ranges.
     ///
     /// `n_lines` is the number of lines in a file, it will be used to convert negative numbers
     /// and unbounded ranges and to check if the parsed line number is out of bound.
     ///
-    /// Notes:
+    /// # Notes:
     ///
     /// Ranges with steps will be internally stored in a tightened format. For example, `1:6:2`
     /// represents the numbers 1, 3, and 5. Thus, `1:6:2` will be represented as `Range(1, 5, 2)`
     /// instead of `Range(1, 6, 2)`.
     ///
-    /// Errors:
+    /// # Errors:
     ///
     /// This method returns an error if:
-    /// 1. `original` contains a zero (`original` is one-based and can't contain zero)
+    /// 1. `original` contains a zero (`original` is one-based so it can't be zero)
     /// 2. `original` contains a number that's beyond the limits of the file (i.e.: not between -n_lines and n_lines)
-    /// 3. `original` is a range and the lower bound is larger than the upper bound (e.g.: `5:3`)
+    /// 3. `original` is a range and the start is larger than the end (e.g.: `5:3` or `3:5:-1`)
     pub(crate) fn from_original(
         original: OriginalLineSelector,
         n_lines: usize,
@@ -62,41 +61,37 @@ impl ParsedLineSelector {
                 let line_num = to_positive_one_based(line_num)?;
                 Ok(Self::Single(line_num))
             }
-            OriginalLineSelector::Range(lower, upper) => {
-                let lower = lower.map(to_positive_one_based).unwrap_or(Ok(0))?;
-                let upper = upper
-                    .map(to_positive_one_based)
-                    .unwrap_or(Ok(n_lines - 1))?;
+            OriginalLineSelector::Range(start, end) => {
+                let start = start.map(to_positive_one_based).unwrap_or(Ok(0))?;
+                let end = end.map(to_positive_one_based).unwrap_or(Ok(n_lines - 1))?;
 
-                if lower > upper {
+                if start > end {
                     anyhow::bail!(
                         "The start of the range can't be more than it's end when the step is positive"
                     );
                 }
 
-                if lower == upper {
-                    Ok(Self::Single(lower))
+                if start == end {
+                    Ok(Self::Single(start))
                 } else {
-                    Ok(Self::Range(lower, upper, 1))
+                    Ok(Self::Range(start, end, 1))
                 }
             }
-            OriginalLineSelector::RangeWithStep(lower, upper, step) => {
+            OriginalLineSelector::RangeWithStep(start, end, step) => {
                 if step == Some(0) {
                     anyhow::bail!("Step can't be zero");
                 }
 
-                let lower = lower.map(to_positive_one_based).unwrap_or(Ok(0))?;
-                let upper = upper
-                    .map(to_positive_one_based)
-                    .unwrap_or(Ok(n_lines - 1))?;
+                let start = start.map(to_positive_one_based).unwrap_or(Ok(0))?;
+                let end = end.map(to_positive_one_based).unwrap_or(Ok(n_lines - 1))?;
                 let step = step.unwrap_or(1);
 
-                if step > 0 && lower > upper {
+                if step > 0 && start > end {
                     anyhow::bail!(
                         "The start of the range can't be more than it's end when the step is positive"
                     );
                 }
-                if step < 0 && lower < upper {
+                if step < 0 && start < end {
                     anyhow::bail!(
                         "The start of the range can't be less than it's end when the step is negative"
                     );
@@ -104,21 +99,19 @@ impl ParsedLineSelector {
 
                 let abs_step = step.unsigned_abs();
 
-                // TODO: benchmark whether using `upper -/+ upper.abs_diff(lower) % abs_step` is
-                // more effecient than `lower +/- upper.abs_diff(lower) / abs_step * abs_step`
-                match lower.cmp(&upper) {
-                    std::cmp::Ordering::Equal => Ok(Self::Single(lower)),
+                // TODO: benchmark whether using `end -/+ end.abs_diff(start) % abs_step` is
+                // more effecient than `start +/- end.abs_diff(start) / abs_step * abs_step`
+                match start.cmp(&end) {
+                    std::cmp::Ordering::Equal => Ok(Self::Single(start)),
                     std::cmp::Ordering::Less => {
-                        // tighten the upper bound. eg: 0:5:2 becomes 0:4:2
-                        let upper = lower + upper.abs_diff(lower) / abs_step * abs_step;
-                        Ok(Self::Range(lower, upper, step))
+                        // tighten the end bound. eg: 0:5:2 becomes 0:4:2
+                        let end = start + end.abs_diff(start) / abs_step * abs_step;
+                        Ok(Self::Range(start, end, step))
                     }
                     std::cmp::Ordering::Greater => {
-                        // tighten the upper bound. eg: 5:0:-2 becomes 5:1:-2
-                        let upper = lower - upper.abs_diff(lower) / abs_step * abs_step;
-                        // TODO: rename every lower/upper to start/end since lower can be greater
-                        // than upper when step is negative, which can confusing :(
-                        Ok(Self::Range(lower, upper, step))
+                        // tighten the end bound. eg: 5:0:-2 becomes 5:1:-2
+                        let end = start - end.abs_diff(start) / abs_step * abs_step;
+                        Ok(Self::Range(start, end, step))
                     }
                 }
             }
@@ -130,11 +123,11 @@ impl Ord for ParsedLineSelector {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         let a = match self {
             ParsedLineSelector::Single(line_num) => line_num,
-            ParsedLineSelector::Range(lower, upper, _) => lower.min(upper),
+            ParsedLineSelector::Range(start, end, _) => start.min(end),
         };
         let b = match other {
             ParsedLineSelector::Single(line_num) => line_num,
-            ParsedLineSelector::Range(lower, upper, _) => lower.min(upper),
+            ParsedLineSelector::Range(start, end, _) => start.min(end),
         };
         a.cmp(b)
     }
@@ -183,16 +176,16 @@ impl OriginalLineSelector {
                 let line_num = parse(line_num)?.expect("We already checked that `s` is not empty");
                 Ok(Self::Single(line_num))
             }
-            (Some(lower), Some(upper), None) => {
-                let lower = parse(lower)?;
-                let upper = parse(upper)?;
-                Ok(Self::Range(lower, upper))
+            (Some(start), Some(end), None) => {
+                let start = parse(start)?;
+                let end = parse(end)?;
+                Ok(Self::Range(start, end))
             }
-            (Some(lower), Some(upper), Some(step)) => {
-                let lower = parse(lower)?;
-                let upper = parse(upper)?;
+            (Some(start), Some(end), Some(step)) => {
+                let start = parse(start)?;
+                let end = parse(end)?;
                 let step = parse(step)?;
-                Ok(Self::RangeWithStep(lower, upper, step))
+                Ok(Self::RangeWithStep(start, end, step))
             }
             _ => unreachable!(),
         }
@@ -203,21 +196,21 @@ impl Display for OriginalLineSelector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             OriginalLineSelector::Single(line_num) => write!(f, "{line_num}"),
-            OriginalLineSelector::Range(lower, upper) => match (lower, upper) {
+            OriginalLineSelector::Range(start, end) => match (start, end) {
                 (None, None) => write!(f, ":"),
-                (None, Some(upper)) => write!(f, ":{upper}"),
-                (Some(lower), None) => write!(f, "{lower}:"),
-                (Some(lower), Some(upper)) => write!(f, "{lower}:{upper}"),
+                (None, Some(end)) => write!(f, ":{end}"),
+                (Some(start), None) => write!(f, "{start}:"),
+                (Some(start), Some(end)) => write!(f, "{start}:{end}"),
             },
-            OriginalLineSelector::RangeWithStep(lower, upper, step) => match (lower, upper, step) {
+            OriginalLineSelector::RangeWithStep(start, end, step) => match (start, end, step) {
                 (None, None, None) => write!(f, "::"),
                 (None, None, Some(step)) => write!(f, "::{step}"),
-                (None, Some(upper), None) => write!(f, ":{upper}:"),
-                (None, Some(upper), Some(step)) => write!(f, ":{upper}:{step}"),
-                (Some(lower), None, None) => write!(f, "{lower}::"),
-                (Some(lower), None, Some(step)) => write!(f, "{lower}::{step}"),
-                (Some(lower), Some(upper), None) => write!(f, "{lower}:{upper}:"),
-                (Some(lower), Some(upper), Some(step)) => write!(f, "{lower}:{upper}:{step}"),
+                (None, Some(end), None) => write!(f, ":{end}:"),
+                (None, Some(end), Some(step)) => write!(f, ":{end}:{step}"),
+                (Some(start), None, None) => write!(f, "{start}::"),
+                (Some(start), None, Some(step)) => write!(f, "{start}::{step}"),
+                (Some(start), Some(end), None) => write!(f, "{start}:{end}:"),
+                (Some(start), Some(end), Some(step)) => write!(f, "{start}:{end}:{step}"),
             },
         }
     }
@@ -225,7 +218,7 @@ impl Display for OriginalLineSelector {
 
 // TODO: test the step feature of Range
 // and test all possible combinations of
-// lower:upper:step
+// start:end:step
 // '1'
 //
 // ':'
@@ -276,7 +269,7 @@ mod tests {
         }
 
         #[test]
-        fn lower_bound_equals_upper_bound() {
+        fn start_equals_end() {
             assert_eq!(
                 create_parsed_line_selector!("2:2", 2).unwrap(),
                 ParsedLineSelector::Single(1)
@@ -294,7 +287,7 @@ mod tests {
         }
 
         #[test]
-        fn lower_bound_more_than_upper_bound() {
+        fn start_more_than_end() {
             assert!(create_parsed_line_selector!("3:2", 42).is_err());
         }
 
