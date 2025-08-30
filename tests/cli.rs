@@ -139,7 +139,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of bound, input has 3 line(s) only\n");
+        .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn line_too_small() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: -4\n\nCaused by:\n    Line -4 is out of bound, input has 3 line(s) only\n");
+        .stderr("Error: Invalid line selector: -4\n\nCaused by:\n    Line -4 is out of range (input has only 3 line(s))\n");
 }
 
 #[test]

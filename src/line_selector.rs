@@ -45,7 +45,7 @@ impl ParsedLineSelector {
             }
 
             if num.unsigned_abs() > n_lines {
-                anyhow::bail!("Line {num} is out of bound, input has {n_lines} line(s) only",);
+                anyhow::bail!("Line {num} is out of range (input has only {n_lines} line(s))");
             }
 
             let num = if num < 0 {
