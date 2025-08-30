@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         let mut first_few_bytes = &first_few_bytes[..n];
         if content_inspector::inspect(first_few_bytes).is_binary() {
             anyhow::bail!(
-                "`{}` is a binary file, use `--allow-binary-files` to suppress this error",
+                "file '{}' appears to be a binary file (use --allow-binary-files to override)",
                 args.file.display()
             );
         }

@@ -80,7 +80,7 @@ fn rejects_binary_file_without_flag() {
         .assert()
         .failure()
         .stderr(predicates::str::ends_with(
-            "binary file, use `--allow-binary-files` to suppress this error\n",
+            "binary file (use --allow-binary-files to override)\n",
         ));
 }
 
