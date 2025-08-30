@@ -61,7 +61,10 @@ fn line_num_is_zero() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 0\n\nCaused by:\n    Line number can't be zero\n");
+        .stderr(
+            "Error: Invalid line selector: 0\n\nCaused by:\n    Line number cannot be zero. Line numbers are one-based. \
+            Use positive numbers (1, 2, 3...) or negative numbers (-1, -2, -3...) for counting from the end.\n",
+        );
 }
 
 #[test]
