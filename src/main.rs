@@ -113,16 +113,17 @@ fn main() -> Result<()> {
             ParsedLineSelector::Range(start, end, step) => {
                 let abs_step = step.unsigned_abs();
                 let mut curr = start;
-                if step > 0 {
-                    while curr <= end {
-                        print_line(&lines[&curr])?;
-                        curr += abs_step;
-                    }
+                let update = if step > 0 {
+                    std::ops::AddAssign::add_assign
                 } else {
-                    while curr >= end {
-                        print_line(&lines[&curr])?;
-                        curr -= abs_step;
+                    std::ops::SubAssign::sub_assign
+                };
+                loop {
+                    print_line(&lines[&curr])?;
+                    if curr == end {
+                        break;
                     }
+                    update(&mut curr, abs_step);
                 }
             }
         }
