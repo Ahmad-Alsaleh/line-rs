@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[command(version, about="Extract lines without hacks", author, long_about = None)]
 pub(crate) struct Cli {
     /// Line number(s) to extract
-    #[arg(short = 'n', long = "line", value_parser = OriginalLineSelector::from_str, value_delimiter = ',', required = true)]
+    #[arg(short = 'n', long = "line", name = "LINE-SELECTORS", value_parser = OriginalLineSelector::from_str, value_delimiter = ',', required = true)]
     pub(crate) original_line_selectors: Vec<OriginalLineSelector>,
 
     /// File to extract line(s) from. Use a dash ('-') or no argument to read from standard input
