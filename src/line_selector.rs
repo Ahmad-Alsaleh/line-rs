@@ -17,7 +17,7 @@ pub(crate) enum ParsedLineSelector {
 }
 
 impl ParsedLineSelector {
-    /// Parses `original` as a zero-based line number, normalizing negative line numbers and
+    /// Parses `raw` as a zero-based line number, normalizing negative line numbers and
     /// unbounded ranges.
     ///
     /// `n_lines` is the number of lines in a file, it will be used to convert negative numbers
@@ -32,13 +32,10 @@ impl ParsedLineSelector {
     /// # Errors:
     ///
     /// This method returns an error if:
-    /// 1. `original` contains a zero (`original` is one-based so it can't be zero)
-    /// 2. `original` contains a number that's beyond the limits of the file (i.e.: not between -n_lines and n_lines)
-    /// 3. `original` is a range and the start is larger than the end (e.g.: `5:3` or `3:5:-1`)
-    pub(crate) fn from_original(
-        original: OriginalLineSelector,
-        n_lines: usize,
-    ) -> anyhow::Result<Self> {
+    /// 1. `raw` contains a zero (`raw` is one-based so it can't be zero)
+    /// 2. `raw` contains a number that's beyond the limits of the file (i.e.: not between -n_lines and n_lines)
+    /// 3. `raw` is a range and the start is larger than the end (e.g.: `5:3` or `3:5:-1`)
+    pub(crate) fn from_raw(raw: RawLineSelector, n_lines: usize) -> anyhow::Result<Self> {
         let to_positive_one_based = |num: isize| {
             if num == 0 {
                 anyhow::bail!("Line number can't be zero");
@@ -56,12 +53,12 @@ impl ParsedLineSelector {
 
             Ok(num)
         };
-        match original {
-            OriginalLineSelector::Single(line_num) => {
+        match raw {
+            RawLineSelector::Single(line_num) => {
                 let line_num = to_positive_one_based(line_num)?;
                 Ok(Self::Single(line_num))
             }
-            OriginalLineSelector::Range(start, end) => {
+            RawLineSelector::Range(start, end) => {
                 let start = start.map(to_positive_one_based).unwrap_or(Ok(0))?;
                 let end = end.map(to_positive_one_based).unwrap_or(Ok(n_lines - 1))?;
 
@@ -77,7 +74,7 @@ impl ParsedLineSelector {
                     Ok(Self::Range(start, end, 1))
                 }
             }
-            OriginalLineSelector::RangeWithStep(start, end, step) => {
+            RawLineSelector::RangeWithStep(start, end, step) => {
                 if step == Some(0) {
                     anyhow::bail!("Step can't be zero");
                 }
@@ -140,13 +137,13 @@ impl PartialOrd for ParsedLineSelector {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum OriginalLineSelector {
+pub(crate) enum RawLineSelector {
     Single(isize),
     Range(Option<isize>, Option<isize>),
     RangeWithStep(Option<isize>, Option<isize>, Option<isize>),
 }
 
-impl OriginalLineSelector {
+impl RawLineSelector {
     /// Parses `s` into single and range line selectors without validation (e.g. if the number is
     /// out of bound) or further processing (e.g. converting negative numbers and unbounded ranges).
     /// Thus, the numbers are stored as one-based.
@@ -192,17 +189,17 @@ impl OriginalLineSelector {
     }
 }
 
-impl Display for OriginalLineSelector {
+impl Display for RawLineSelector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OriginalLineSelector::Single(line_num) => write!(f, "{line_num}"),
-            OriginalLineSelector::Range(start, end) => match (start, end) {
+            RawLineSelector::Single(line_num) => write!(f, "{line_num}"),
+            RawLineSelector::Range(start, end) => match (start, end) {
                 (None, None) => write!(f, ":"),
                 (None, Some(end)) => write!(f, ":{end}"),
                 (Some(start), None) => write!(f, "{start}:"),
                 (Some(start), Some(end)) => write!(f, "{start}:{end}"),
             },
-            OriginalLineSelector::RangeWithStep(start, end, step) => match (start, end, step) {
+            RawLineSelector::RangeWithStep(start, end, step) => match (start, end, step) {
                 (None, None, None) => write!(f, "::"),
                 (None, None, Some(step)) => write!(f, "::{step}"),
                 (None, Some(end), None) => write!(f, ":{end}:"),
@@ -241,8 +238,8 @@ mod tests {
 
     macro_rules! create_parsed_line_selector {
         ($s: literal, $n_lines: literal) => {{
-            let original = OriginalLineSelector::from_str($s).unwrap();
-            ParsedLineSelector::from_original(original, $n_lines)
+            let raw = RawLineSelector::from_str($s).unwrap();
+            ParsedLineSelector::from_raw(raw, $n_lines)
         }};
     }
 
@@ -333,14 +330,14 @@ mod tests {
                 create_parsed_line_selector!("   1:5 ", 5).unwrap(),
                 ParsedLineSelector::Range(0, 4, 1)
             );
-            assert!(OriginalLineSelector::from_str("1: 5").is_err());
-            assert!(OriginalLineSelector::from_str("1 :5").is_err());
-            assert!(OriginalLineSelector::from_str("1 : 5").is_err());
+            assert!(RawLineSelector::from_str("1: 5").is_err());
+            assert!(RawLineSelector::from_str("1 :5").is_err());
+            assert!(RawLineSelector::from_str("1 : 5").is_err());
         }
 
         #[test]
         fn not_parsable() {
-            assert!(OriginalLineSelector::from_str("a").is_err());
+            assert!(RawLineSelector::from_str("a").is_err());
         }
     }
 }

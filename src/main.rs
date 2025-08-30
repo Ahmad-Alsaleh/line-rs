@@ -62,11 +62,11 @@ fn main() -> Result<()> {
 
     // parse line selectors
     let line_selectors: anyhow::Result<Box<[_]>> = args
-        .original_line_selectors
+        .raw_line_selectors
         .into_iter()
-        .map(|original_line_selector| {
-            ParsedLineSelector::from_original(original_line_selector, n_lines)
-                .with_context(|| format!("Invalid line selector: {original_line_selector}"))
+        .map(|raw_line_selector| {
+            ParsedLineSelector::from_raw(raw_line_selector, n_lines)
+                .with_context(|| format!("Invalid line selector: {raw_line_selector}"))
         })
         .collect();
     let line_selectors = line_selectors?;

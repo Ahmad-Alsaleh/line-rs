@@ -1,4 +1,4 @@
-use crate::line_selector::OriginalLineSelector;
+use crate::line_selector::RawLineSelector;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -7,8 +7,8 @@ use std::path::PathBuf;
 #[command(version, about="Extract lines without hacks", author, long_about = None, next_line_help = true)]
 pub(crate) struct Cli {
     /// Line number(s) to extract
-    #[arg(short = 'n', long = "line", value_name = "LINE-SELECTORS", value_parser = OriginalLineSelector::from_str, value_delimiter = ',', required = true)]
-    pub(crate) original_line_selectors: Vec<OriginalLineSelector>,
+    #[arg(short = 'n', long = "line", value_name = "LINE-SELECTORS", value_parser = RawLineSelector::from_str, value_delimiter = ',', required = true)]
+    pub(crate) raw_line_selectors: Vec<RawLineSelector>,
 
     /// Treat binary files as text files
     #[arg(long)]
