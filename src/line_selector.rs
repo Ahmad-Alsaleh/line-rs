@@ -37,13 +37,6 @@ impl ParsedLineSelector {
     /// 3. `raw` is a range and the start is larger than the end (e.g.: `5:3` or `3:5:-1`)
     pub(crate) fn from_raw(raw: RawLineSelector, n_lines: usize) -> anyhow::Result<Self> {
         let to_positive_one_based = |num: isize| {
-            if num == 0 {
-                anyhow::bail!(
-                    "Line number cannot be zero. Line numbers are one-based. Use positive numbers (1, 2, 3...) \
-                    or negative numbers (-1, -2, -3...) for counting from the end."
-                );
-            }
-
             if num.unsigned_abs() > n_lines {
                 anyhow::bail!("Line {num} is out of range (input has only {n_lines} line(s))");
             }
@@ -78,10 +71,6 @@ impl ParsedLineSelector {
                 }
             }
             RawLineSelector::RangeWithStep(start, end, step) => {
-                if step == Some(0) {
-                    anyhow::bail!("Step can't be zero");
-                }
-
                 let start = start.map(to_positive_one_based).unwrap_or(Ok(0))?;
                 let end = end.map(to_positive_one_based).unwrap_or(Ok(n_lines - 1))?;
                 let step = step.unwrap_or(1);
@@ -179,7 +168,13 @@ impl RawLineSelector {
             let num: isize = s
                 .parse()
                 .with_context(|| format!("Value `{s}` is not a number"))?;
-            Ok::<_, anyhow::Error>(Some(num))
+            if num == 0 {
+                anyhow::bail!(
+                    "Zero is not allowed. Use positive numbers (1, 2, ...) or negative numbers \
+                    (-1, -2, ...) for backward counting"
+                );
+            }
+            Ok(Some(num))
         };
 
         let mut parts = s.splitn(3, ':');
@@ -277,7 +272,7 @@ mod tests {
         fn line_number_is_zero() {
             // TODO: replace all `.is_err` with `matches!(CORRECT_ERROR_TYPE)`
             // once custom errors are created
-            assert!(create_parsed_line_selector!("0", 42).is_err());
+            assert!(RawLineSelector::from_str("0").is_err());
         }
 
         #[test]
