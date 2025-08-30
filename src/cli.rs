@@ -4,30 +4,45 @@ use std::path::PathBuf;
 
 // TODO: consider using https://github.com/Canop/clap-help
 #[derive(Parser, Debug)]
-#[command(version, about="Extract lines without hacks", author, long_about = None, next_line_help = true)]
+#[command(
+    version, 
+    about="Extract specific lines from text files with powerful indexing",
+    author, 
+    long_about = "A fast, flexible tool for extracting lines from text files using Python-like \
+                 indexing.\nSupports ranges, steps, and backward counting.",
+    next_line_help = true
+)]
 pub(crate) struct Cli {
-    /// Line number(s) to extract
-    #[arg(short = 'n', long = "line", value_name = "LINE-SELECTORS", value_parser = RawLineSelector::from_str, value_delimiter = ',', required = true)]
+    /// Line number(s) to extract. Supports ranges (1:5), ranges with steps (1:10:2),
+    /// unbound ranges (5:), negative indices for backward counting, and combinations (1,5:3:-1,:7)
+    #[arg(
+        short = 'n', 
+        long = "line", 
+        value_name = "LINE_SELECTORS", 
+        value_parser = RawLineSelector::from_str, 
+        value_delimiter = ',', 
+        required = true,
+        help_heading = "Selection"
+    )]
     pub(crate) raw_line_selectors: Vec<RawLineSelector>,
 
-    /// Treat binary files as text files
-    #[arg(long)]
+    /// Process binary files as text (default: reject binary files)
+    #[arg(long, help_heading = "Input")]
     pub(crate) allow_binary_files: bool,
 
-    /// Only show plain style, no decorations or line numbers
-    #[arg(short, long)]
+    /// Output plain text without decorations or line numbers
+    #[arg(short, long, help_heading = "Output")]
     pub(crate) plain: bool,
 
-    /// Show N lines before the selected line
-    #[arg(long, short, value_name = "N", default_value_t = 0)]
+    /// Show N lines before each selected line
+    #[arg(long, short, value_name = "N", default_value_t = 0, help_heading = "Context")]
     pub(crate) before: usize,
 
-    /// Show N lines after the selected line
-    #[arg(long, short, value_name = "N", default_value_t = 0)]
+    /// Show N lines after each selected line  
+    #[arg(long, short, value_name = "N", default_value_t = 0, help_heading = "Context")]
     pub(crate) after: usize,
 
-    /// Show context lines around the selected line
-    /// Equivalent to setting both --after and --before to the same value
+    /// Show N context lines around each selected line (equivalent to --before=N --after=N)
     #[arg(
         long,
         short,
@@ -35,10 +50,11 @@ pub(crate) struct Cli {
         conflicts_with = "before",
         conflicts_with = "after",
         value_name = "N",
-        verbatim_doc_comment
+        help_heading = "Context"
     )]
     pub(crate) context: usize,
 
-    /// File to extract line(s) from. Use a dash ('-') or no argument to read from standard input
+    /// Input file (use '-' for stdin)
+    #[arg(value_name = "FILE")]
     pub(crate) file: PathBuf,
 }
