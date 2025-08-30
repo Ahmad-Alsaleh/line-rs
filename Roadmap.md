@@ -1,4 +1,4 @@
-# TODO
+# Project Roadmap
 
 ## Phase 1: Errors
 
@@ -17,7 +17,8 @@
 
 ## Phase 3: Output Enhancements 
 
-- [ ] add a flag `--context` to print the lines before and after the specified line.
+- [ ] add a flag `--context` to print the lines before and after the specified line, default value is zero.
+- [ ] do the same as `--context` but `--before` and `--after` (make sure `-a` and `-b` can't be used with `-c`, but `-a` and `-b` can be used together).
 - [ ] add a `--sep` flag to specify the separator eg: `--sep=','` will print: `one,two,three` in plain text (without pretty printing). default is '\n'.
 
 ## Phase 4: Json Printing
@@ -62,11 +63,18 @@
 - [ ] make this tool installable through `apt`, `cargo install`, and `brew` (what else?).
 - [ ] add shell completions for bash, zsh, fish.
 - [ ] run benchmarks to test if this tool is more effecient than other tools (eg: awk, sed, head + tail).
+- [ ] benchmark speed effeciency compared to other tools (eg: awk, sed, head + tail).
+- [ ] benchmark memory usage for large files.
 
 ## Phase 8: Extra Features
 
 - [ ] add a flag `--not` to skip lines. the syntax should be the same as `-n` (range, multiple lines, negative values, etc.). make sure to `AND` the `-not` with `-n`. if `-n` is not there then print all lines except `--not`.
 - [ ] add option `--skip` to print `-n` except the skipped lines. the syntax for `--skip` is the same as `-n` (range, multiple lines, negative values, etc.).
 - [ ] allow duplicates by default, set a flag to turn this off called `--noduplicate`.
+- [ ] add propery-based tests
+
+## Phase 9: Performance and Security Enhancements
 - [ ] try to optimize this tool when stdout is a pipe, e.g.: in `line -n=1:10000 file.txt | head -n 2`, line-rs shouldn't generate all 10000 line.
+- [ ] use mmap for large files.
+- [ ] add path traversal protection
 
