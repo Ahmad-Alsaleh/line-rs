@@ -187,5 +187,5 @@ MIT
 
 ## Feedback
 
-Feel free to open issues or suggestions on [GitHub](https://github.com/yourname/line-rs).
+Feel free to open issues or suggestions on [GitHub](https://github.com/Ahmad-Alsaleh/line-rs).
 

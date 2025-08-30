@@ -38,7 +38,10 @@ impl ParsedLineSelector {
     pub(crate) fn from_raw(raw: RawLineSelector, n_lines: usize) -> anyhow::Result<Self> {
         let to_positive_one_based = |num: isize| {
             if num == 0 {
-                anyhow::bail!("Line number can't be zero");
+                anyhow::bail!(
+                    "Line number cannot be zero. Line numbers are one-based. Use positive numbers (1, 2, 3...) \
+                    or negative numbers (-1, -2, -3...) for counting from the end."
+                );
             }
 
             if num.unsigned_abs() > n_lines {
@@ -64,7 +67,7 @@ impl ParsedLineSelector {
 
                 if start > end {
                     anyhow::bail!(
-                        "The start of the range can't be more than it's end when the step is positive"
+                        "The start of the range can't be more than its end when the step is positive"
                     );
                 }
 
@@ -85,12 +88,12 @@ impl ParsedLineSelector {
 
                 if step > 0 && start > end {
                     anyhow::bail!(
-                        "The start of the range can't be more than it's end when the step is positive"
+                        "The start of the range can't be more than its end when the step is positive"
                     );
                 }
                 if step < 0 && start < end {
                     anyhow::bail!(
-                        "The start of the range can't be less than it's end when the step is negative"
+                        "The start of the range can't be less than its end when the step is negative"
                     );
                 }
 

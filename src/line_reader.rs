@@ -1,6 +1,6 @@
 use std::io::BufRead;
 
-/// Reads lines of a file in an efficeint way.
+/// Reads lines of a file in an efficient way.
 pub(crate) struct LineReader<R> {
     reader: R,
     current_line: usize,
@@ -32,6 +32,7 @@ impl<R: BufRead> LineReader<R> {
         Ok(())
     }
 
+    // TODO: double, check, is it > or >=
     /// `line_num` is zero-based.
     /// `lines_num` should be more than `self.current_line`.
     pub(crate) fn read_specific_line(
@@ -141,7 +142,7 @@ mod tests {
         }
 
         #[test]
-        fn no_read_permessions() -> anyhow::Result<()> {
+        fn no_read_permissions() -> anyhow::Result<()> {
             let temp_dir = tempfile::tempdir()?;
             let path = temp_dir.path().join("file.txt");
 

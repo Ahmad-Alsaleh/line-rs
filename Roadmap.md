@@ -56,7 +56,7 @@
 - [ ] respect the [NO_COLOR](https://no-color.org) env var.
 - [ ] color the word `Warning` in yellow.
 
-## Pahse 7: Documentation and Packaging
+## Phase 7: Documentation and Packaging
 
 - [ ] add a readme. check the following by gpt. make sure it matches other famous rust cli tools and make sure it doesn't sound like ai generated.
 - [ ] consider making a man page.

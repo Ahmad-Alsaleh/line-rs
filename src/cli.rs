@@ -14,7 +14,7 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) allow_binary_files: bool,
 
-    ///Only show plain style, no decorations or line numbers
+    /// Only show plain style, no decorations or line numbers
     #[arg(short, long)]
     pub(crate) plain: bool,
 
