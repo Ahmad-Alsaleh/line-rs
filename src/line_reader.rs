@@ -1,6 +1,24 @@
 use std::io::BufRead;
 
-/// Reads lines of a file in an efficient way.
+/// Efficient line-by-line reader that can skip to specific line numbers.
+///
+/// This reader is optimized for scenarios where you need to read specific lines
+/// from a file without loading the entire content into memory. It maintains
+/// an internal line counter and can efficiently skip over unwanted lines.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::io::BufReader;
+/// use std::fs::File;
+///
+/// let file = File::open("file.txt")?;
+/// let mut reader = LineReader::new(BufReader::new(file));
+///
+/// let mut buffer = Vec::new();
+/// reader.read_specific_line(&mut buffer, 42)?; // Read line 43 (zero-based indexing)
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub(crate) struct LineReader<R> {
     reader: R,
     current_line: usize,
