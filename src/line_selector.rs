@@ -136,10 +136,22 @@ impl PartialOrd for ParsedLineSelector {
     }
 }
 
+/// Represents a line selector as parsed from user input, before validation
+///
+/// # Examples:
+///
+/// `-4` is represented as Single(-4)
+/// `:5` is represented as Range(None, Some(5))
+/// `3:7:2` is represented as RangeWithStep(Some(3), Some(7), Some(2))
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RawLineSelector {
+    /// Single line number (1-based)
     Single(isize),
+
+    /// Range with optional bounds (1-based, inclusive)
     Range(Option<isize>, Option<isize>),
+
+    /// Range with step (1-based, inclusive)
     RangeWithStep(Option<isize>, Option<isize>, Option<isize>),
 }
 
