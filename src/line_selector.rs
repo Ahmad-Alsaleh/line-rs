@@ -86,19 +86,19 @@ impl ParsedLineSelector {
                     );
                 }
 
-                let abs_step = step.unsigned_abs();
-
                 // TODO: benchmark whether using `end -/+ end.abs_diff(start) % abs_step` is
                 // more effecient than `start +/- end.abs_diff(start) / abs_step * abs_step`
                 match start.cmp(&end) {
                     std::cmp::Ordering::Equal => Ok(Self::Single(start)),
                     std::cmp::Ordering::Less => {
                         // tighten the end bound. eg: 0:5:2 becomes 0:4:2
+                        let abs_step = step.unsigned_abs();
                         let end = start + end.abs_diff(start) / abs_step * abs_step;
                         Ok(Self::Range(start, end, step))
                     }
                     std::cmp::Ordering::Greater => {
                         // tighten the end bound. eg: 5:0:-2 becomes 5:1:-2
+                        let abs_step = step.unsigned_abs();
                         let end = start - end.abs_diff(start) / abs_step * abs_step;
                         Ok(Self::Range(start, end, step))
                     }

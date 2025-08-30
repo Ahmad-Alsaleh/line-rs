@@ -1,6 +1,9 @@
 use assert_cmd::Command;
-use assert_fs::{NamedTempFile, prelude::*};
-use predicates::{ord::eq, str::ends_with};
+use assert_fs::{NamedTempFile, TempDir, prelude::*};
+use predicates::{
+    ord::eq,
+    str::{ends_with, starts_with},
+};
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 
 const BIN_NAME: &str = "line";
@@ -61,10 +64,10 @@ fn line_num_is_zero() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr(
-            "Error: Invalid line selector: 0\n\nCaused by:\n    Line number cannot be zero. Line numbers are one-based. \
-            Use positive numbers (1, 2, 3...) or negative numbers (-1, -2, -3...) for counting from the end.\n",
-        );
+        .stderr(starts_with(
+            "error: invalid value '0' for '--line <LINE_SELECTORS>': Zero is not allowed. Use \
+            positive numbers (1, 2, ...) or negative numbers (-1, -2, ...) for backward counting",
+        ));
 }
 
 #[test]
@@ -327,7 +330,22 @@ fn start_more_than_end() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 3:2\n\nCaused by:\n    The start of the range can't be more than its end when the step is positive\n");
+        .stderr(
+            "Error: Invalid line selector: 3:2\n\nCaused by:\n    The start of the range can't \
+            be more than its end when the step is positive\n",
+        );
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("3:2:2")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(
+            "Error: Invalid line selector: 3:2:2\n\nCaused by:\n    The start of the range \
+            can't be more than its end when the step is positive\n",
+        );
 
     Command::cargo_bin(BIN_NAME)
         .unwrap()
@@ -336,5 +354,105 @@ fn start_more_than_end() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 1:3:-1\n\nCaused by:\n    The start of the range can't be less than its end when the step is negative\n");
+        .stderr(
+            "Error: Invalid line selector: 1:3:-1\n\nCaused by:\n    The start of the range \
+            can't be less than its end when the step is negative\n",
+        );
+}
+
+#[test]
+fn step_is_zero() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.touch().unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("3:2:0")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(starts_with(
+            "error: invalid value '3:2:0' for '--line <LINE_SELECTORS>': Zero is not allowed. Use \
+            positive numbers (1, 2, ...) or negative numbers (-1, -2, ...) for backward counting",
+        ));
+}
+
+#[test]
+fn empty_line_selector() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.touch().unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(starts_with(
+            "error: invalid value '' for '--line <LINE_SELECTORS>': Line number can't be empty",
+        ));
+}
+
+#[test]
+fn start_less_than_end_with_step() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("1:2:1")
+        .arg("-p")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("one\ntwo\n");
+}
+
+#[test]
+fn start_equals_end_with_step() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("2:2:1")
+        .arg("-p")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("two\n");
+}
+
+#[test]
+fn negative_step() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("2:1:-1")
+        .arg("-p")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("two\none\n");
+}
+
+#[test]
+fn not_a_file() {
+    let file = TempDir::new().unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("1")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr(ends_with("not a file\n"));
 }
