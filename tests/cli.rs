@@ -143,6 +143,38 @@ fn line_too_large() {
         .assert()
         .failure()
         .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=4:5")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr("Error: Invalid line selector: 4:5\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=1:5")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr("Error: Invalid line selector: 1:5\n\nCaused by:\n    Line 5 is out of range (input has only 3 line(s))\n");
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=4:5:2")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr("Error: Invalid line selector: 4:5:2\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=1:5:2")
+        .arg(file.path())
+        .assert()
+        .failure()
+        .stderr("Error: Invalid line selector: 1:5:2\n\nCaused by:\n    Line 5 is out of range (input has only 3 line(s))\n");
 }
 
 #[test]

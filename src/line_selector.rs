@@ -246,15 +246,15 @@ impl Display for RawLineSelector {
 mod tests {
     use super::*;
 
-    macro_rules! create_parsed_line_selector {
-        ($s: literal, $n_lines: literal) => {{
-            let raw = RawLineSelector::from_str($s).unwrap();
-            ParsedLineSelector::from_raw(raw, $n_lines)
-        }};
-    }
-
     mod create_parsed_line_selector {
         use super::*;
+
+        macro_rules! create_parsed_line_selector {
+            ($s: literal, $n_lines: literal) => {{
+                let raw = RawLineSelector::from_str($s).unwrap();
+                ParsedLineSelector::from_raw(raw, $n_lines)
+            }};
+        }
 
         #[test]
         fn single_number() {
@@ -348,6 +348,37 @@ mod tests {
         #[test]
         fn not_parsable() {
             assert!(RawLineSelector::from_str("a").is_err());
+            assert!(RawLineSelector::from_str("a:2").is_err());
+            assert!(RawLineSelector::from_str("1:a").is_err());
+            assert!(RawLineSelector::from_str("a:2:3").is_err());
+            assert!(RawLineSelector::from_str("1:a:3").is_err());
+            assert!(RawLineSelector::from_str("1:2:a").is_err());
+        }
+    }
+
+    mod display_raw_line_selector {
+        use super::*;
+
+        #[test]
+        fn single() {
+            let line_selector = RawLineSelector::from_str("1").unwrap();
+            assert_eq!(line_selector.to_string(), "1");
+        }
+
+        #[test]
+        fn range() {
+            for s in [":", ":2", "1:", "1:2"] {
+                let line_selector = RawLineSelector::from_str(s).unwrap();
+                assert_eq!(line_selector.to_string(), s);
+            }
+        }
+
+        #[test]
+        fn range_with_step() {
+            for s in ["::", "::3", ":2:", ":2:3", "1::", "1::3", "1:2:", "1:2:3"] {
+                let line_selector = RawLineSelector::from_str(s).unwrap();
+                assert_eq!(line_selector.to_string(), s);
+            }
         }
     }
 }
