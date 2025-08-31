@@ -30,6 +30,7 @@ fn main() -> Result<()> {
         // file is empty, return early
         if n == 0 {
             if !args.plain {
+                // TODO: use pretty pretty printing
                 println!("--- EMPTY FILE ---");
             }
             return Ok(());
@@ -133,6 +134,7 @@ fn main() -> Result<()> {
 }
 
 fn print_line(line: &[u8]) -> anyhow::Result<()> {
+    // TODO (FIXME): handle SIGPIPE: `line -n=: $file | head -n1`
     std::io::stdout()
         .lock()
         .write_all(line)

@@ -87,7 +87,7 @@ impl ParsedLineSelector {
                 }
 
                 // TODO: benchmark whether using `end -/+ end.abs_diff(start) % abs_step` is
-                // more effecient than `start +/- end.abs_diff(start) / abs_step * abs_step`
+                // more efficient than `start +/- end.abs_diff(start) / abs_step * abs_step`
                 match start.cmp(&end) {
                     std::cmp::Ordering::Equal => Ok(Self::Single(start)),
                     std::cmp::Ordering::Less => {
@@ -335,7 +335,7 @@ mod tests {
         }
 
         #[test]
-        fn with_srounding_whitespace() {
+        fn with_surrounding_whitespace() {
             assert_eq!(
                 create_parsed_line_selector!("   1:5 ", 5).unwrap(),
                 ParsedLineSelector::Range(0, 4, 1)

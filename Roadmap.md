@@ -62,16 +62,16 @@
 - [ ] consider making a man page.
 - [ ] make this tool installable through `apt`, `cargo install`, and `brew` (what else?).
 - [ ] add shell completions for bash, zsh, fish.
-- [ ] run benchmarks to test if this tool is more effecient than other tools (eg: awk, sed, head + tail).
-- [ ] benchmark speed effeciency compared to other tools (eg: awk, sed, head + tail).
+- [ ] run benchmarks to test if this tool is more efficient than other tools (eg: awk, sed, head + tail).
+- [ ] benchmark speed efficiency compared to other tools (eg: awk, sed, head + tail).
 - [ ] benchmark memory usage for large files.
 
 ## Phase 8: Extra Features
 
 - [ ] add a flag `--not` to skip lines. the syntax should be the same as `-n` (range, multiple lines, negative values, etc.). make sure to `AND` the `-not` with `-n`. if `-n` is not there then print all lines except `--not`.
 - [ ] add option `--skip` to print `-n` except the skipped lines. the syntax for `--skip` is the same as `-n` (range, multiple lines, negative values, etc.).
-- [ ] allow duplicates by default, set a flag to turn this off called `--noduplicate`.
-- [ ] add propery-based tests
+- [ ] allow duplicates by default, set a flag to turn this off called `--no-duplicate`.
+- [ ] add property-based tests
 
 ## Phase 9: Performance and Security Enhancements
 - [ ] try to optimize this tool when stdout is a pipe, e.g.: in `line -n=1:10000 file.txt | head -n 2`, line-rs shouldn't generate all 10000 line.

@@ -55,7 +55,7 @@ You can also combine the above! The command bellow selects the line `2` and the 
         line -n=3:
         ```
 
-    - From the begining of the file up to line 9:
+    - From the beginning of the file up to line 9:
         ```sh
         line -n=:9 # equivalent to 1:9
         ```
@@ -145,7 +145,7 @@ Output
 
 ### Using brew
 
-## Shell Complition
+## Shell Completion
 
 > More about that soon
 

@@ -116,7 +116,7 @@ fn file_does_not_exist() {
 }
 
 #[test]
-fn no_read_permesions() {
+fn no_read_permissions() {
     let file = NamedTempFile::new("file").unwrap();
     file.touch().unwrap();
 

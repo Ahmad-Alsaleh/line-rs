@@ -155,7 +155,7 @@ mod tests {
             let temp_dir = tempfile::tempdir().unwrap();
             let path = temp_dir.path().join("file.txt");
 
-            // `File::create` creates a file with _write-only_ permessions
+            // `File::create` creates a file with _write-only_ permissions
             let mut file = File::create(&path).unwrap();
             write!(file, "one\ntwo\n").unwrap();
 
@@ -260,7 +260,7 @@ mod tests {
         }
 
         #[test]
-        fn skip_line_in_range_withno_trailing_ln() {
+        fn skip_line_in_range_with_no_trailing_ln() {
             let cursor = Cursor::new("one\ntwo\nthree");
             let mut line_reader = LineReader::new(cursor);
 
