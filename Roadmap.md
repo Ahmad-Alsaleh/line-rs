@@ -76,5 +76,6 @@
 ## Phase 9: Performance and Security Enhancements
 - [ ] try to optimize this tool when stdout is a pipe, e.g.: in `line -n=1:10000 file.txt | head -n 2`, line-rs shouldn't generate all 10000 line.
 - [ ] use mmap for large files.
-- [ ] add path traversal protection
+- [ ] add path traversal protection.
+- [ ] try multithreading: one thread will find the positions of all '\n' and the other thread will parse the line selectors and store the selected lines into the hashmap. maybe do this for large files only, since the overhead of multithreading will not be worth it.
 
