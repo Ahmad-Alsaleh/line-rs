@@ -3,10 +3,10 @@ use crate::line_reader::LineReader;
 use crate::line_selector::ParsedLineSelector;
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, Write};
+use std::io::{BufRead, BufReader, Read, Seek, StdoutLock, Write};
 use std::path::Path;
 
 mod cli;
@@ -106,10 +106,11 @@ fn main() -> Result<()> {
     }
 
     // print selected lines
+    let mut stdout = std::io::stdout().lock();
     for line_selector in line_selectors {
         match line_selector {
             ParsedLineSelector::Single(line_num) => {
-                print_line(&lines[&line_num])?;
+                print_line(&lines[&line_num], &mut stdout)?;
             }
             ParsedLineSelector::Range(start, end, step) => {
                 let abs_step = step.unsigned_abs();
@@ -120,7 +121,7 @@ fn main() -> Result<()> {
                     std::ops::SubAssign::sub_assign
                 };
                 loop {
-                    print_line(&lines[&curr])?;
+                    print_line(&lines[&curr], &mut stdout)?;
                     if curr == end {
                         break;
                     }
@@ -133,10 +134,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn print_line(line: &[u8]) -> anyhow::Result<()> {
+fn print_line(line: &[u8], stdout: &mut StdoutLock) -> anyhow::Result<()> {
     // TODO (FIXME): handle SIGPIPE: `line -n=: $file | head -n1`
-    std::io::stdout()
-        .lock()
+    stdout
         .write_all(line)
         .context("Failed to write line to stdout")?;
     Ok(())
