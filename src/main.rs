@@ -3,8 +3,8 @@ use crate::line_reader::LineReader;
 use crate::line_selector::ParsedLineSelector;
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, StdoutLock, Write};
 use std::path::Path;
@@ -13,8 +13,13 @@ mod cli;
 mod line_reader;
 mod line_selector;
 
+struct Line {
+    content: Vec<u8>,
+    color: bool,
+}
+
 fn main() -> Result<()> {
-    let args = Cli::parse();
+    let mut args = Cli::parse();
 
     let file = open_file(&args.file)?;
     let mut file = BufReader::new(file);
@@ -75,18 +80,31 @@ fn main() -> Result<()> {
     let mut sorted_line_selectors = line_selectors.clone();
     sorted_line_selectors.sort_unstable();
 
+    if args.context != 0 {
+        args.before = args.context;
+        args.after = args.context;
+    }
+
     let mut line_reader = LineReader::new(file);
 
     // TODO: benchmark to check if using a Vec + binary search is better than using a hash map
     // read and store selected lines
-    let mut lines: HashMap<usize, Vec<u8>> = HashMap::new();
+    let mut lines: HashMap<usize, Line> = HashMap::new();
     for line_selector in sorted_line_selectors {
         match line_selector {
             ParsedLineSelector::Single(line_num) => {
-                if let Entry::Vacant(entry) = lines.entry(line_num) {
-                    let line = read_line(&mut line_reader, line_num)?;
-                    entry.insert(line);
+                let from = line_num.saturating_sub(args.before);
+                let to = line_num.saturating_add(args.after).min(n_lines);
+                for line_num in from..=to {
+                    if let Entry::Vacant(entry) = lines.entry(line_num) {
+                        let line = read_line(&mut line_reader, line_num)?;
+                        entry.insert(Line {
+                            content: line,
+                            color: false,
+                        });
+                    }
                 }
+                lines.entry(line_num).and_modify(|line| line.color = true);
             }
             ParsedLineSelector::Range(start, end, step) => {
                 let line_nums = if step > 0 {
@@ -113,13 +131,14 @@ fn main() -> Result<()> {
                 print_line(&lines[&line_num], &mut stdout)?;
             }
             ParsedLineSelector::Range(start, end, step) => {
-                let abs_step = step.unsigned_abs();
-                let mut curr = start;
                 let update = if step > 0 {
                     std::ops::AddAssign::add_assign
                 } else {
                     std::ops::SubAssign::sub_assign
                 };
+
+                let abs_step = step.unsigned_abs();
+                let mut curr = start;
                 loop {
                     print_line(&lines[&curr], &mut stdout)?;
                     if curr == end {
@@ -134,10 +153,10 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn print_line(line: &[u8], stdout: &mut StdoutLock) -> anyhow::Result<()> {
-    // TODO (FIXME): handle SIGPIPE: `line -n=: $file | head -n1`
+fn print_line(line: Line, stdout: &mut StdoutLock) -> anyhow::Result<()> {
+    // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
     stdout
-        .write_all(line)
+        .write_all(&line.content)
         .context("Failed to write line to stdout")?;
     Ok(())
 }

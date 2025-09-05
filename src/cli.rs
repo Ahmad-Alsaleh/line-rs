@@ -47,8 +47,7 @@ pub(crate) struct Cli {
         long,
         short,
         default_value_t = 0,
-        conflicts_with = "before",
-        conflicts_with = "after",
+        conflicts_with_all = ["before", "after"],
         value_name = "N",
         help_heading = "Context"
     )]
