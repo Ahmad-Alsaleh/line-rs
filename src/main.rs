@@ -92,22 +92,26 @@ fn main() -> Result<()> {
     let mut lines: HashMap<usize, Line> = HashMap::new();
     for line_selector in sorted_line_selectors {
         match line_selector {
-            ParsedLineSelector::Single(line_num) => {
-                let from = line_num.saturating_sub(args.before);
-                let to = line_num.saturating_add(args.after).min(n_lines);
-                for line_num in from..=to {
-                    if let Entry::Vacant(entry) = lines.entry(line_num) {
-                        let line = read_line(&mut line_reader, line_num)?;
+            ParsedLineSelector::Single(selected_line_num) => {
+                // read context lines
+                let first_context_line = selected_line_num.saturating_sub(args.before);
+                let last_context_line = selected_line_num.saturating_add(args.after).min(n_lines);
+                for context_line_num in first_context_line..=last_context_line {
+                    if let Entry::Vacant(entry) = lines.entry(context_line_num) {
+                        let line = read_line(&mut line_reader, context_line_num)?;
                         entry.insert(Line {
                             content: line,
                             color: false,
                         });
                     }
                 }
-                lines.entry(line_num).and_modify(|line| line.color = true);
+                // change color of selected line
+                lines
+                    .entry(selected_line_num)
+                    .and_modify(|line| line.color = true);
             }
             ParsedLineSelector::Range(start, end, step) => {
-                let line_nums = if step > 0 {
+                let selected_line_nums = if step > 0 {
                     (start..=end).step_by(step.unsigned_abs())
                 } else {
                     (end..=start).step_by(step.unsigned_abs())
@@ -131,20 +135,20 @@ fn main() -> Result<()> {
                 print_line(&lines[&line_num], &mut stdout)?;
             }
             ParsedLineSelector::Range(start, end, step) => {
-                let update = if step > 0 {
+                let update_fn = if step > 0 {
                     std::ops::AddAssign::add_assign
                 } else {
                     std::ops::SubAssign::sub_assign
                 };
 
                 let abs_step = step.unsigned_abs();
-                let mut curr = start;
+                let mut curr_line_num = start;
                 loop {
-                    print_line(&lines[&curr], &mut stdout)?;
-                    if curr == end {
+                    print_line(&lines[&curr_line_num], &mut stdout)?;
+                    if curr_line_num == end {
                         break;
                     }
-                    update(&mut curr, abs_step);
+                    update_fn(&mut curr_line_num, abs_step);
                 }
             }
         }
