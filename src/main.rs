@@ -147,9 +147,16 @@ fn main() -> Result<()> {
     // print selected lines
     let mut stdout = std::io::stdout().lock();
     for line_selector in line_selectors {
+        // TODO: implement Display for ParsedLineSelector. Maybe print Range(a, b, c) as `a:b:c (a, a + c, ..., b)`
+        // but make sure to use one-based for the line numbers
+        writeln!(stdout, "\n------ Line: {line_selector:?} ------")?;
         match line_selector {
-            ParsedLineSelector::Single(line_num) => {
-                print_line(&lines[&line_num], &mut stdout)?;
+            ParsedLineSelector::Single(selected_line_num) => {
+                let first_line = selected_line_num.saturating_sub(args.before);
+                let last_line = selected_line_num.saturating_add(args.after).min(n_lines);
+                for line_num in first_line..=last_line {
+                    print_line(&lines[&line_num], line_num, &mut stdout)?;
+                }
             }
             ParsedLineSelector::Range(start, end, step) => {
                 let update_fn = if step > 0 {
@@ -158,10 +165,11 @@ fn main() -> Result<()> {
                     std::ops::SubAssign::sub_assign
                 };
 
+                // TODO: print context lines
                 let abs_step = step.unsigned_abs();
                 let mut curr_line_num = start;
                 loop {
-                    print_line(&lines[&curr_line_num], &mut stdout)?;
+                    print_line(&lines[&curr_line_num], curr_line_num, &mut stdout)?;
                     if curr_line_num == end {
                         break;
                     }
@@ -174,11 +182,18 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn print_line(line: Line, stdout: &mut StdoutLock) -> anyhow::Result<()> {
+fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::Result<()> {
     // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
-    stdout
-        .write_all(&line.content)
-        .context("Failed to write line to stdout")?;
+    write!(stdout, "{}: ", line_num + 1)?;
+    if line.color {
+        // TODO: make this cross-platform
+        write!(stdout, "\x1b[31m")?;
+    }
+    stdout.write_all(&line.content)?;
+    if line.color {
+        // TODO: make this cross-platform
+        write!(stdout, "\x1b[0m")?;
+    }
     Ok(())
 }
 
