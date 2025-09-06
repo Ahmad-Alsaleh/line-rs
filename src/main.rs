@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         // count the number of lines in the first few bytes
         while first_few_bytes
             .skip_until(b'\n')
-            .context("Failed to read from file")?
+            .expect("An in-memory vector never fails on read")
             > 0
         {
             n_lines += 1;
