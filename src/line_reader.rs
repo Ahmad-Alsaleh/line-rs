@@ -73,10 +73,10 @@ impl<R: BufRead> LineReader<R> {
     ) -> anyhow::Result<()> {
         debug_assert!(
             line_num >= self.current_line,
-            "current line is {}, can't read previous line {}. Reads must happen incrementally, see \
+            "current line is {} (one-based), can't read previous line {} (one-based). Reads must happen incrementally, see \
             struct documentation",
-            self.current_line,
-            line_num
+            self.current_line + 1,
+            line_num + 1
         );
         if line_num != self.current_line {
             self.skip_lines(line_num - self.current_line)?;
