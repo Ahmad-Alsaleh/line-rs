@@ -1,6 +1,6 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
-use crate::line_selector::ParsedLineSelector;
+use crate::line_selector::{ParsedLineSelector, RawLineSelector};
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::collections::HashMap;
@@ -66,20 +66,12 @@ fn main() -> Result<()> {
     // and https://github.com/uutils/coreutils/pull/4189/files#diff-bd7f28594a45798eed07dea6767fc2bb5cb29e2d2855366ba65b126248bfd4b9R128-R132
     file.rewind().context("Failed to rewind file")?;
 
-    // parse line selectors
-    let line_selectors: anyhow::Result<Box<[_]>> = args
-        .raw_line_selectors
-        .into_iter()
-        .map(|raw_line_selector| {
-            ParsedLineSelector::from_raw(raw_line_selector, n_lines)
-                .with_context(|| format!("Invalid line selector: {raw_line_selector}"))
-        })
-        .collect();
-    let line_selectors = line_selectors?;
 
+    let line_selectors = parse_line_selectors(args.raw_line_selectors, n_lines)?;
     let mut sorted_line_selectors = line_selectors.clone();
     sorted_line_selectors.sort_unstable();
 
+    // if `--context` is set (i.e. not 0), then `--context=N` is equivalent to `--before=N --after=N`
     if args.context != 0 {
         args.before = args.context;
         args.after = args.context;
@@ -180,6 +172,20 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_line_selectors(
+    raw_line_selectors: Vec<RawLineSelector>,
+    n_lines: usize,
+) -> anyhow::Result<Box<[ParsedLineSelector]>> {
+    let parsed_line_selectors: anyhow::Result<Box<[_]>> = raw_line_selectors
+        .into_iter()
+        .map(|raw_line_selector| {
+            ParsedLineSelector::from_raw(raw_line_selector, n_lines)
+                .with_context(|| format!("Invalid line selector: {raw_line_selector}"))
+        })
+        .collect();
+    parsed_line_selectors
 }
 
 fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::Result<()> {
