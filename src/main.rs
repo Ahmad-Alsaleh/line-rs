@@ -121,6 +121,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Reads the line `selected_line_num` and it's context line, storing the line in `lines`. If the
+/// line is already in `lines`, then the line will not be read.
 fn read_line_with_context(
     line_reader: &mut LineReader<BufReader<File>>,
     lines: &mut HashMap<usize, Line>,
@@ -167,6 +169,7 @@ fn parse_line_selectors(
         .collect()
 }
 
+/// Opens a file and bails if the file is a directory or empty
 fn open_file(path: &Path) -> anyhow::Result<File> {
     let file =
         File::open(path).with_context(|| format!("Couldn't open file `{}`", path.display()))?;
@@ -184,6 +187,7 @@ fn open_file(path: &Path) -> anyhow::Result<File> {
     Ok(file)
 }
 
+/// Counts the number of lines in the file then rewinds to the begining of the file
 fn count_lines(file: &mut BufReader<File>) -> anyhow::Result<usize> {
     let mut n_lines = 0;
     while file.skip_until(b'\n').context("Failed to read from file")? > 0 {
@@ -193,6 +197,7 @@ fn count_lines(file: &mut BufReader<File>) -> anyhow::Result<usize> {
     Ok(n_lines)
 }
 
+/// Checks if `file` is binary by inspecing the first few bytes, then bails if it is
 fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> anyhow::Result<()> {
     let mut first_few_bytes = [0; 64];
     let n = file
@@ -207,12 +212,16 @@ fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> anyhow::Result<()
         );
     }
 
+    // we read a small amount of bytes, so rewinding shouldn't be expensive due to caching
     file.rewind().context("Failed to rewind file")?;
 
     Ok(())
 }
 
+/// Prints `line` and colors it if it is a selected line (not a context line) and colors are
+/// enabled
 fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::Result<()> {
+    // TODO: make this respect `-p`
     // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
     write!(stdout, "{}: ", line_num + 1)?;
     if line.color {
@@ -224,6 +233,7 @@ fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::
         // TODO: make this cross-platform
         write!(stdout, "\x1b[0m")?;
     }
+
     Ok(())
 }
 
