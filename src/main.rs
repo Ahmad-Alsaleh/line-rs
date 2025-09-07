@@ -134,7 +134,10 @@ fn read_line_with_context(
     // read context lines
     for context_line_num in context_line_nums {
         if let Entry::Vacant(entry) = lines.entry(context_line_num) {
-            let line = read_line(line_reader, context_line_num)?;
+            let mut line = Vec::new();
+            line_reader
+                .read_specific_line(&mut line, context_line_num)
+                .with_context(|| format!("Failed to read line number {context_line_num}"))?;
             entry.insert(Line {
                 content: line,
                 color: false,
@@ -222,18 +225,6 @@ fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::
         write!(stdout, "\x1b[0m")?;
     }
     Ok(())
-}
-
-/// Note: `line_num` should be zero-based
-fn read_line<R: BufRead>(
-    line_reader: &mut LineReader<R>,
-    line_num: usize,
-) -> anyhow::Result<Vec<u8>> {
-    let mut lin_buf = Vec::new();
-    line_reader
-        .read_specific_line(&mut lin_buf, line_num)
-        .with_context(|| format!("Failed to read line number {line_num}"))?;
-    Ok(lin_buf)
 }
 
 /// Returns `selected_line_num` along with its context line numbers, that is: all line numbers
