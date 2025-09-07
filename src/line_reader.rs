@@ -6,6 +6,11 @@ use std::io::BufRead;
 /// from a file without loading the entire content into memory. It maintains
 /// an internal line counter and can efficiently skip over unwanted lines.
 ///
+/// # Undefined Behaviour
+///
+/// For efficiency reasons, lines should be read incrementally. That is, if you try to read lines 3
+/// and 5. You should read line 3 first then 5. Otherwise, the behaviour will be undefined.
+///
 /// # Examples
 ///
 /// ```rust,no_run
