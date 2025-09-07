@@ -23,8 +23,13 @@ pub(crate) trait OutputWriter {
     ) -> anyhow::Result<()>;
 }
 
-// TODO: add doc to these (show diff)
+/// No styles at all (no line numbers, headers, or colors)
 pub(crate) struct PlainOutputWriter<W: Write>(pub W);
+
+/// Line numbers and headers are displayed but without colors
+pub(crate) struct NotColoredOutputWriter<W: Write>(pub W);
+
+/// Full style (line numbers, headers, and colors)
 pub(crate) struct ColoredOutputWriter<W: Write>(pub W);
 
 impl<W: Write> OutputWriter for PlainOutputWriter<W> {
@@ -42,6 +47,30 @@ impl<W: Write> OutputWriter for PlainOutputWriter<W> {
         &mut self,
         _line_selector: &ParsedLineSelector,
     ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl<W: Write> OutputWriter for NotColoredOutputWriter<W> {
+    fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()> {
+        match line {
+            Line::Context { line_num, line } | Line::Selected { line_num, line } => {
+                write!(self.0, "{line_num}: ", line_num = line_num + 1)?;
+                self.0.write_all(line)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // TODO: print the raw selectors, not the parsed ones. the parsed ones are internal and
+    // shouldn't be user-facing. if the user selects `-n=-1` it'll be confusing to show the parsed
+    // selectors
+    fn print_line_selector_header(
+        &mut self,
+        line_selector: &ParsedLineSelector,
+    ) -> anyhow::Result<()> {
+        writeln!(self.0, "\nLine: {line_selector:?}")?;
         Ok(())
     }
 }

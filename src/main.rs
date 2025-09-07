@@ -1,7 +1,9 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
 use crate::line_selector::{ParsedLineSelector, RawLineSelector};
-use crate::output::{ColoredOutputWriter, Line, OutputWriter, PlainOutputWriter};
+use crate::output::{
+    ColoredOutputWriter, Line, NotColoredOutputWriter, OutputWriter, PlainOutputWriter,
+};
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::collections::{HashMap, hash_map::Entry};
@@ -82,6 +84,8 @@ fn main() -> Result<()> {
     let stdout = std::io::stdout().lock();
     let mut output: Box<dyn OutputWriter> = if args.plain {
         Box::new(PlainOutputWriter(stdout))
+    } else if args.no_color {
+        Box::new(NotColoredOutputWriter(stdout))
     } else {
         Box::new(ColoredOutputWriter(stdout))
     };

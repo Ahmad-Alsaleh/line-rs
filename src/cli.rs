@@ -30,7 +30,13 @@ pub(crate) struct Cli {
     #[arg(long, help_heading = "Input")]
     pub(crate) allow_binary_files: bool,
 
-    /// Output plain text without decorations or line numbers
+    // TODO: make this an enum Color {On, Off, Auto}, default should be auto, which turns colors
+    // off if the output is not a terminal or when an env var is set
+    /// Do not output colors
+    #[arg(long, help_heading = "Output")]
+    pub(crate) no_color: bool,
+
+    /// Output plain text without any decorations or line numbers
     #[arg(short, long, help_heading = "Output")]
     pub(crate) plain: bool,
 
