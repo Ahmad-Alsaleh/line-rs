@@ -246,6 +246,6 @@ fn get_line_nums_with_context(
     n_lines: usize,
 ) -> impl Iterator<Item = usize> {
     let first_context_line = selected_line_num.saturating_sub(before);
-    let last_context_line = selected_line_num.saturating_add(after).min(n_lines);
+    let last_context_line = selected_line_num.saturating_add(after).min(n_lines - 1);
     first_context_line..=last_context_line
 }
