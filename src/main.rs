@@ -29,8 +29,8 @@ fn main() -> Result<()> {
     }
 
     let n_lines = count_lines(&mut file)?;
-
     let line_selectors = parse_line_selectors(args.raw_line_selectors, n_lines)?;
+
     let mut sorted_line_selectors = line_selectors.clone();
     sorted_line_selectors.sort_unstable();
 
@@ -48,22 +48,14 @@ fn main() -> Result<()> {
     for line_selector in sorted_line_selectors {
         match line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
-                // read context lines
-                let first_context_line = selected_line_num.saturating_sub(args.before);
-                let last_context_line = selected_line_num.saturating_add(args.after).min(n_lines);
-                for context_line_num in first_context_line..=last_context_line {
-                    if let Entry::Vacant(entry) = lines.entry(context_line_num) {
-                        let line = read_line(&mut line_reader, context_line_num)?;
-                        entry.insert(Line {
-                            content: line,
-                            color: false,
-                        });
-                    }
-                }
-                // change color of selected line
-                lines
-                    .entry(selected_line_num)
-                    .and_modify(|line| line.color = true);
+                read_line_with_context(
+                    &mut line_reader,
+                    &mut lines,
+                    selected_line_num,
+                    args.before,
+                    args.after,
+                    n_lines,
+                )?;
             }
             ParsedLineSelector::Range(start, end, step) => {
                 let selected_line_nums = if step > 0 {
@@ -73,27 +65,18 @@ fn main() -> Result<()> {
                 };
 
                 for selected_line_num in selected_line_nums {
-                    // read context lines
-                    let first_context_line = selected_line_num.saturating_sub(args.before);
-                    let last_context_line =
-                        selected_line_num.saturating_add(args.after).min(n_lines);
                     // TODO: optimize this: when you have a range, say, 4:10 with -c=2, you don't
                     // need an inner loop for the lines 5..=9, you can read the lines 1..=7 then
-                    // read two lines before 4 and two lines after 10. but watch out when the step
-                    // is not 1.
-                    for context_line_num in first_context_line..=last_context_line {
-                        if let Entry::Vacant(entry) = lines.entry(context_line_num) {
-                            let line = read_line(&mut line_reader, context_line_num)?;
-                            entry.insert(Line {
-                                content: line,
-                                color: false,
-                            });
-                        }
-                    }
-                    // change color of selected line
-                    lines
-                        .entry(selected_line_num)
-                        .and_modify(|line| line.color = true);
+                    // read two lines before 4 and two lines after 10. this will reduce the number
+                    // of hashes. but watch out when the step is not 1.
+                    read_line_with_context(
+                        &mut line_reader,
+                        &mut lines,
+                        selected_line_num,
+                        args.before,
+                        args.after,
+                        n_lines,
+                    )?;
                 }
             }
         }
@@ -133,6 +116,36 @@ fn main() -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn read_line_with_context(
+    line_reader: &mut LineReader<BufReader<File>>,
+    lines: &mut HashMap<usize, Line>,
+    selected_line_num: usize,
+    before: usize,
+    after: usize,
+    n_lines: usize,
+) -> anyhow::Result<()> {
+    let first_context_line = selected_line_num.saturating_sub(before);
+    let last_context_line = selected_line_num.saturating_add(after).min(n_lines);
+
+    // read context lines
+    for context_line_num in first_context_line..=last_context_line {
+        if let Entry::Vacant(entry) = lines.entry(context_line_num) {
+            let line = read_line(line_reader, context_line_num)?;
+            entry.insert(Line {
+                content: line,
+                color: false,
+            });
+        }
+    }
+
+    // set color of selected line
+    lines
+        .entry(selected_line_num)
+        .and_modify(|line| line.color = true);
 
     Ok(())
 }
