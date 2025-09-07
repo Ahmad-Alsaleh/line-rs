@@ -90,9 +90,10 @@ fn main() -> Result<()> {
         writeln!(stdout, "\n------ Line: {line_selector:?} ------")?;
         match line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
-                let first_line = selected_line_num.saturating_sub(args.before);
-                let last_line = selected_line_num.saturating_add(args.after).min(n_lines);
-                for line_num in first_line..=last_line {
+                let line_nums =
+                    get_line_nums_with_context(selected_line_num, args.before, args.after, n_lines);
+
+                for line_num in line_nums {
                     print_line(&lines[&line_num], line_num, &mut stdout)?;
                 }
             }
@@ -128,11 +129,10 @@ fn read_line_with_context(
     after: usize,
     n_lines: usize,
 ) -> anyhow::Result<()> {
-    let first_context_line = selected_line_num.saturating_sub(before);
-    let last_context_line = selected_line_num.saturating_add(after).min(n_lines);
+    let context_line_nums = get_line_nums_with_context(selected_line_num, before, after, n_lines);
 
     // read context lines
-    for context_line_num in first_context_line..=last_context_line {
+    for context_line_num in context_line_nums {
         if let Entry::Vacant(entry) = lines.entry(context_line_num) {
             let line = read_line(line_reader, context_line_num)?;
             entry.insert(Line {
@@ -234,4 +234,18 @@ fn read_line<R: BufRead>(
         .read_specific_line(&mut lin_buf, line_num)
         .with_context(|| format!("Failed to read line number {line_num}"))?;
     Ok(lin_buf)
+}
+
+/// Returns `selected_line_num` along with its context line numbers, that is: all line numbers
+/// between `selected_line_num - before` and `selected_line_num + after`, capped between 0 and
+/// n_lines.
+fn get_line_nums_with_context(
+    selected_line_num: usize,
+    before: usize,
+    after: usize,
+    n_lines: usize,
+) -> impl Iterator<Item = usize> {
+    let first_context_line = selected_line_num.saturating_sub(before);
+    let last_context_line = selected_line_num.saturating_add(after).min(n_lines);
+    first_context_line..=last_context_line
 }
