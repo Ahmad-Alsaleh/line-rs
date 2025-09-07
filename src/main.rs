@@ -24,48 +24,11 @@ fn main() -> Result<()> {
     let file = open_file(&args.file)?;
     let mut file = BufReader::new(file);
 
-    let mut n_lines = 0;
     if !args.allow_binary_files {
-        // binary files aren't allowed, check if the file is binary
-        let mut first_few_bytes = [0; 128];
-        let n = file
-            .read(&mut first_few_bytes)
-            .context("Failed to read from file")?;
-
-        // file is empty, return early
-        if n == 0 {
-            if !args.plain {
-                // TODO: use pretty pretty printing
-                println!("--- EMPTY FILE ---");
-            }
-            return Ok(());
-        }
-
-        let mut first_few_bytes = &first_few_bytes[..n];
-        if content_inspector::inspect(first_few_bytes).is_binary() {
-            anyhow::bail!(
-                "file '{}' appears to be a binary file (use --allow-binary-files to override)",
-                args.file.display()
-            );
-        }
-
-        // count the number of lines in the first few bytes
-        while first_few_bytes
-            .skip_until(b'\n')
-            .expect("An in-memory vector never fails on read")
-            > 0
-        {
-            n_lines += 1;
-        }
+        bail_if_binrary(&mut file, &args.file)?;
     }
-    // count the number of lines in the remainder of the file
-    while file.skip_until(b'\n').context("Failed to read from file")? > 0 {
-        n_lines += 1;
-    }
-    // TODO: support seek for stdin https://github.com/rust-lang/rust/issues/72802#issuecomment-1101996578
-    // and https://github.com/uutils/coreutils/pull/4189/files#diff-bd7f28594a45798eed07dea6767fc2bb5cb29e2d2855366ba65b126248bfd4b9R128-R132
-    file.rewind().context("Failed to rewind file")?;
 
+    let n_lines = count_lines(&mut file)?;
 
     let line_selectors = parse_line_selectors(args.raw_line_selectors, n_lines)?;
     let mut sorted_line_selectors = line_selectors.clone();
@@ -188,6 +151,51 @@ fn parse_line_selectors(
     parsed_line_selectors
 }
 
+fn open_file(path: &Path) -> Result<File, anyhow::Error> {
+    let file =
+        File::open(path).with_context(|| format!("Couldn't open file `{}`", path.display()))?;
+
+    let metadata = file
+        .metadata()
+        .with_context(|| format!("Couldn't read file metadata of `{}`", path.display()))?;
+
+    if !metadata.is_file() {
+        anyhow::bail!("`{}` is not a file", path.display());
+    } else if metadata.len() == 0 {
+        anyhow::bail!("`{}` is an empty file", path.display());
+    }
+
+    Ok(file)
+}
+
+fn count_lines(file: &mut BufReader<File>) -> Result<usize, anyhow::Error> {
+    let mut n_lines = 0;
+    while file.skip_until(b'\n').context("Failed to read from file")? > 0 {
+        n_lines += 1;
+    }
+    file.rewind().context("Failed to rewind file")?;
+    Ok(n_lines)
+}
+
+fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> Result<(), anyhow::Error> {
+    let mut first_few_bytes = [0; 64];
+    let n = file
+        .read(&mut first_few_bytes)
+        .context("Failed to read from file")?;
+    let first_few_bytes = &first_few_bytes[..n];
+
+    if content_inspector::inspect(first_few_bytes).is_binary() {
+        anyhow::bail!(
+            "file '{}' appears to be a binary file (use --allow-binary-files to override)",
+            path.display()
+        );
+    }
+
+    file.rewind().context("Failed to rewind file")?;
+
+    Ok(())
+}
+
 fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::Result<()> {
     // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
     write!(stdout, "{}: ", line_num + 1)?;
@@ -201,28 +209,6 @@ fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::
         write!(stdout, "\x1b[0m")?;
     }
     Ok(())
-}
-
-fn open_file(path: &Path) -> Result<File> {
-    let file =
-        File::open(path).with_context(|| format!("Failed to open file `{}`", path.display()))?;
-
-    match file.metadata() {
-        Ok(metadata) => {
-            if !metadata.is_file() {
-                anyhow::bail!("`{}` is not a file", path.display());
-            }
-        }
-        Err(error) => {
-            eprintln!(
-                "Warning: couldn't determine if `{}` is a file or a directory from its metadata, \
-                treating it as a file. Reason: {error}",
-                path.display()
-            );
-        }
-    }
-
-    Ok(file)
 }
 
 /// Note: `line_num` should be zero-based
