@@ -7,6 +7,11 @@ use predicates::{
 use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 
 const BIN_NAME: &str = "line";
+const RED: &str = "\x1b[31m";
+const GREEN_BOLD: &str = "\x1b[32;1m";
+const BOLD: &str = "\x1b[1m";
+const CLEAR: &str = "\x1b[0m";
+const BLUE_BOLD: &str = "\x1b[36;1m";
 
 #[test]
 fn extract_line_in_middle() {
@@ -246,17 +251,7 @@ fn empty_file() {
         .arg("-n=1")
         .arg(file.path())
         .assert()
-        .success()
-        .stdout("--- EMPTY FILE ---\n");
-
-    Command::cargo_bin(BIN_NAME)
-        .unwrap()
-        .arg("-n=1")
-        .arg("--plain")
-        .arg(file.path())
-        .assert()
-        .success()
-        .stdout("");
+        .failure();
 }
 
 #[test]
@@ -270,7 +265,9 @@ fn without_plain_flag() {
         .arg(file.path())
         .assert()
         .success()
-        .stdout("one\n");
+        .stdout(format!(
+            "{BLUE_BOLD}Line: Single(0){CLEAR}\n{GREEN_BOLD}1:{CLEAR} {RED}one\n{CLEAR}"
+        ));
 }
 
 #[test]
