@@ -13,11 +13,6 @@ mod cli;
 mod line_reader;
 mod line_selector;
 
-struct Line {
-    content: Vec<u8>,
-    color: bool,
-}
-
 fn main() -> Result<()> {
     let mut args = Cli::parse();
 
@@ -44,7 +39,7 @@ fn main() -> Result<()> {
 
     // TODO: benchmark to check if using a Vec + binary search is better than using a hash map
     // read and store selected lines
-    let mut lines: HashMap<usize, Line> = HashMap::new();
+    let mut lines: HashMap<usize, Vec<u8>> = HashMap::new();
     for line_selector in sorted_line_selectors {
         match line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
@@ -85,8 +80,9 @@ fn main() -> Result<()> {
     // print selected lines
     let mut stdout = std::io::stdout().lock();
     for line_selector in line_selectors {
-        // TODO: implement Display for ParsedLineSelector. Maybe print Range(a, b, c) as `a:b:c (a, a + c, ..., b)`
-        // but make sure to use one-based for the line numbers
+        // TODO: print the raw selectors, not the parsed ones. the parsed ones are internal and
+        // shouldn't be user-facing. if the user selects `-n=-1` it'll be confusing to show the
+        // parsed selectors
         writeln!(stdout, "\n------ Line: {line_selector:?} ------")?;
         match line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
@@ -94,7 +90,8 @@ fn main() -> Result<()> {
                     get_line_nums_with_context(selected_line_num, args.before, args.after, n_lines);
 
                 for line_num in line_nums {
-                    print_line(&lines[&line_num], line_num, &mut stdout)?;
+                    let color = line_num == selected_line_num;
+                    print_line(&lines[&line_num], line_num, &mut stdout, color)?;
                 }
             }
             ParsedLineSelector::Range(start, end, step) => {
@@ -108,7 +105,8 @@ fn main() -> Result<()> {
                 let abs_step = step.unsigned_abs();
                 let mut curr_line_num = start;
                 loop {
-                    print_line(&lines[&curr_line_num], curr_line_num, &mut stdout)?;
+                    let color = true; // TODO
+                    print_line(&lines[&curr_line_num], curr_line_num, &mut stdout, color)?;
                     if curr_line_num == end {
                         break;
                     }
@@ -125,7 +123,7 @@ fn main() -> Result<()> {
 /// line is already in `lines`, then the line will not be read.
 fn read_line_with_context(
     line_reader: &mut LineReader<BufReader<File>>,
-    lines: &mut HashMap<usize, Line>,
+    lines: &mut HashMap<usize, Vec<u8>>,
     selected_line_num: usize,
     before: usize,
     after: usize,
@@ -140,17 +138,9 @@ fn read_line_with_context(
             line_reader
                 .read_specific_line(&mut line, context_line_num)
                 .with_context(|| format!("Failed to read line number {context_line_num}"))?;
-            entry.insert(Line {
-                content: line,
-                color: false,
-            });
+            entry.insert(line);
         }
     }
-
-    // set color of selected line
-    lines
-        .entry(selected_line_num)
-        .and_modify(|line| line.color = true);
 
     Ok(())
 }
@@ -220,18 +210,31 @@ fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> anyhow::Result<()
 
 /// Prints `line` and colors it if it is a selected line (not a context line) and colors are
 /// enabled
-fn print_line(line: &Line, line_num: usize, stdout: &mut StdoutLock) -> anyhow::Result<()> {
-    // TODO: make this respect `-p`
+fn print_line(
+    line: &[u8],
+    line_num: usize,
+    stdout: &mut StdoutLock,
+    color: bool,
+) -> anyhow::Result<()> {
     // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
-    write!(stdout, "{}: ", line_num + 1)?;
-    if line.color {
-        // TODO: make this cross-platform
-        write!(stdout, "\x1b[31m")?;
-    }
-    stdout.write_all(&line.content)?;
-    if line.color {
-        // TODO: make this cross-platform
-        write!(stdout, "\x1b[0m")?;
+
+    // TODO: make this cross-platform
+    const RED: &str = "\x1b[31m";
+    const GREEN_BOLD: &str = "\x1b[32;1m";
+    const BOLD: &str = "\x1b[1m";
+    const CLEAR: &str = "\x1b[0m";
+
+    if color {
+        write!(
+            stdout,
+            "{GREEN_BOLD}{line_num}:{CLEAR} {RED}",
+            line_num = line_num + 1
+        )?;
+        stdout.write_all(line)?;
+        write!(stdout, "{CLEAR}")?;
+    } else {
+        write!(stdout, "{BOLD}{line_num}:{CLEAR} ", line_num = line_num + 1)?;
+        stdout.write_all(line)?;
     }
 
     Ok(())
