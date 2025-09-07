@@ -167,7 +167,7 @@ fn parse_line_selectors(
     parsed_line_selectors
 }
 
-fn open_file(path: &Path) -> Result<File, anyhow::Error> {
+fn open_file(path: &Path) -> anyhow::Result<File> {
     let file =
         File::open(path).with_context(|| format!("Couldn't open file `{}`", path.display()))?;
 
@@ -184,7 +184,7 @@ fn open_file(path: &Path) -> Result<File, anyhow::Error> {
     Ok(file)
 }
 
-fn count_lines(file: &mut BufReader<File>) -> Result<usize, anyhow::Error> {
+fn count_lines(file: &mut BufReader<File>) -> anyhow::Result<usize> {
     let mut n_lines = 0;
     while file.skip_until(b'\n').context("Failed to read from file")? > 0 {
         n_lines += 1;
@@ -193,7 +193,7 @@ fn count_lines(file: &mut BufReader<File>) -> Result<usize, anyhow::Error> {
     Ok(n_lines)
 }
 
-fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> Result<(), anyhow::Error> {
+fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> anyhow::Result<()> {
     let mut first_few_bytes = [0; 64];
     let n = file
         .read(&mut first_few_bytes)
