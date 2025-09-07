@@ -54,9 +54,18 @@ impl<R: BufRead> LineReader<R> {
         Ok(())
     }
 
-    // TODO: double, check, is it > or >=
+    /// Reads a specific line, skipping all previous lines.
+    ///
+    /// # Notes
+    ///
     /// `line_num` is zero-based.
-    /// `lines_num` should be more than `self.current_line`.
+    ///
+    /// # Undefined Behaviour
+    ///
+    /// Calles to `read_specific_line` should be incremental, i.e. reading line 5 then line 3 will
+    /// result in an undefined behaviour. Similarly, reading the same line twice is an undefined
+    /// behaviour as well. Instead, you should read lines in an incremental manner, e.g.: read line
+    /// 3 then 5.
     pub(crate) fn read_specific_line(
         &mut self,
         buf: &mut Vec<u8>,
