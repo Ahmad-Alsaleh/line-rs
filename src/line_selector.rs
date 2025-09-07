@@ -152,7 +152,7 @@ impl RawLineSelector {
     /// out of bound) or further processing (e.g. converting negative numbers and unbounded ranges).
     /// Thus, the numbers are stored as one-based.
     ///
-    /// Errors:
+    /// # Errors:
     ///
     /// This method returns an error if: `s` can't be parsed into a number
     pub(crate) fn from_str(s: &str) -> anyhow::Result<Self> {
