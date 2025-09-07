@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     }
 
     let n_lines = count_lines(&mut file)?;
-    let line_selectors = parse_line_selectors(args.raw_line_selectors, n_lines)?;
+    let line_selectors = parse_line_selectors(&args.raw_line_selectors, n_lines)?;
 
     let mut sorted_line_selectors = line_selectors.clone();
     sorted_line_selectors.sort_unstable();
@@ -153,18 +153,18 @@ fn read_line_with_context(
     Ok(())
 }
 
+/// Parses a slice of `RawLineSelector` into a slice of `ParsedLineSelector`
 fn parse_line_selectors(
-    raw_line_selectors: Vec<RawLineSelector>,
+    raw_line_selectors: &[RawLineSelector],
     n_lines: usize,
 ) -> anyhow::Result<Box<[ParsedLineSelector]>> {
-    let parsed_line_selectors: anyhow::Result<Box<[_]>> = raw_line_selectors
-        .into_iter()
-        .map(|raw_line_selector| {
+    raw_line_selectors
+        .iter()
+        .map(|&raw_line_selector| {
             ParsedLineSelector::from_raw(raw_line_selector, n_lines)
                 .with_context(|| format!("Invalid line selector: {raw_line_selector}"))
         })
-        .collect();
-    parsed_line_selectors
+        .collect()
 }
 
 fn open_file(path: &Path) -> anyhow::Result<File> {
