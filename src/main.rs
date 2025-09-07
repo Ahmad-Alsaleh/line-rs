@@ -1,17 +1,18 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
 use crate::line_selector::{ParsedLineSelector, RawLineSelector};
+use crate::output::{ColoredOutputWriter, Line, OutputWriter, PlainOutputWriter};
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
+use std::collections::{HashMap, hash_map::Entry};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, StdoutLock, Write};
+use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::Path;
 
 mod cli;
 mod line_reader;
 mod line_selector;
+mod output;
 
 fn main() -> Result<()> {
     let mut args = Cli::parse();
@@ -29,7 +30,8 @@ fn main() -> Result<()> {
     let mut sorted_line_selectors = line_selectors.clone();
     sorted_line_selectors.sort_unstable();
 
-    // if `--context` is set (i.e. not 0), then `--context=N` is equivalent to `--before=N --after=N`
+    // if `--context` is set (i.e. not 0), then `--context=N` is equivalent
+    // to `--before=N --after=N`
     if args.context != 0 {
         args.before = args.context;
         args.after = args.context;
@@ -77,41 +79,53 @@ fn main() -> Result<()> {
         }
     }
 
+    let stdout = std::io::stdout().lock();
+    let mut output: Box<dyn OutputWriter> = if args.plain {
+        Box::new(PlainOutputWriter(stdout))
+    } else {
+        Box::new(ColoredOutputWriter(stdout))
+    };
+
     // print selected lines
-    let mut stdout = std::io::stdout().lock();
     for line_selector in line_selectors {
-        // TODO: print the raw selectors, not the parsed ones. the parsed ones are internal and
-        // shouldn't be user-facing. if the user selects `-n=-1` it'll be confusing to show the
-        // parsed selectors
-        writeln!(stdout, "\n------ Line: {line_selector:?} ------")?;
+        output
+            .print_line_selector_header(&line_selector)
+            .context("Failed to output line")?;
         match line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
                 let line_nums =
                     get_line_nums_with_context(selected_line_num, args.before, args.after, n_lines);
 
                 for line_num in line_nums {
-                    let color = line_num == selected_line_num;
-                    print_line(&lines[&line_num], line_num, &mut stdout, color)?;
+                    let line = &lines[&line_num];
+                    let line = if line_num == selected_line_num {
+                        Line::Selected { line_num, line }
+                    } else {
+                        Line::Context { line_num, line }
+                    };
+                    output.print_line(line).context("Failed to output line")?;
                 }
             }
-            ParsedLineSelector::Range(start, end, step) => {
-                let update_fn = if step > 0 {
-                    std::ops::AddAssign::add_assign
-                } else {
-                    std::ops::SubAssign::sub_assign
-                };
-
-                // TODO: print context lines
-                let abs_step = step.unsigned_abs();
-                let mut curr_line_num = start;
-                loop {
-                    let color = true; // TODO
-                    print_line(&lines[&curr_line_num], curr_line_num, &mut stdout, color)?;
-                    if curr_line_num == end {
-                        break;
-                    }
-                    update_fn(&mut curr_line_num, abs_step);
-                }
+            ParsedLineSelector::Range(_start, _end, _step) => {
+                todo!()
+                // let update_fn = if step > 0 {
+                //     std::ops::AddAssign::add_assign
+                // } else {
+                //     std::ops::SubAssign::sub_assign
+                // };
+                //
+                // // TODO: print context lines
+                // let abs_step = step.unsigned_abs();
+                // let mut curr_line_num = start;
+                // loop {
+                //     let line = &lines[&curr_line_num];
+                //     let line = Line::Selected(line);
+                //     print_line(line, curr_line_num, &mut stdout)?;
+                //     if curr_line_num == end {
+                //         break;
+                //     }
+                //     update_fn(&mut curr_line_num, abs_step);
+                // }
             }
         }
     }
@@ -208,41 +222,9 @@ fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> anyhow::Result<()
     Ok(())
 }
 
-/// Prints `line` and colors it if it is a selected line (not a context line) and colors are
-/// enabled
-fn print_line(
-    line: &[u8],
-    line_num: usize,
-    stdout: &mut StdoutLock,
-    color: bool,
-) -> anyhow::Result<()> {
-    // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
-
-    // TODO: make this cross-platform
-    const RED: &str = "\x1b[31m";
-    const GREEN_BOLD: &str = "\x1b[32;1m";
-    const BOLD: &str = "\x1b[1m";
-    const CLEAR: &str = "\x1b[0m";
-
-    if color {
-        write!(
-            stdout,
-            "{GREEN_BOLD}{line_num}:{CLEAR} {RED}",
-            line_num = line_num + 1
-        )?;
-        stdout.write_all(line)?;
-        write!(stdout, "{CLEAR}")?;
-    } else {
-        write!(stdout, "{BOLD}{line_num}:{CLEAR} ", line_num = line_num + 1)?;
-        stdout.write_all(line)?;
-    }
-
-    Ok(())
-}
-
 /// Returns `selected_line_num` along with its context line numbers, that is: all line numbers
 /// between `selected_line_num - before` and `selected_line_num + after`, capped between 0 and
-/// n_lines.
+/// n_lines - 1.
 fn get_line_nums_with_context(
     selected_line_num: usize,
     before: usize,
