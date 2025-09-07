@@ -71,6 +71,13 @@ impl<R: BufRead> LineReader<R> {
         buf: &mut Vec<u8>,
         line_num: usize,
     ) -> anyhow::Result<()> {
+        debug_assert!(
+            line_num >= self.current_line,
+            "current line is {}, can't read previous line {}. Reads must happen incrementally, see \
+            struct documentation",
+            self.current_line,
+            line_num
+        );
         if line_num != self.current_line {
             self.skip_lines(line_num - self.current_line)?;
         }
@@ -302,6 +309,30 @@ mod tests {
 
     mod read_specific_line {
         use super::*;
+
+        #[test]
+        #[should_panic]
+        fn read_previous_line() {
+            let cursor = Cursor::new("one\ntwo\nthree\n");
+            let mut line_reader = LineReader::new(cursor);
+
+            let mut buf = Vec::new();
+
+            line_reader.read_specific_line(&mut buf, 1).unwrap();
+            line_reader.read_specific_line(&mut buf, 0).unwrap();
+        }
+
+        #[test]
+        #[should_panic]
+        fn read_same_lines_twice() {
+            let cursor = Cursor::new("one\ntwo\nthree\n");
+            let mut line_reader = LineReader::new(cursor);
+
+            let mut buf = Vec::new();
+
+            line_reader.read_specific_line(&mut buf, 1).unwrap();
+            line_reader.read_specific_line(&mut buf, 1).unwrap();
+        }
 
         #[test]
         fn input_with_trailing_new_line() {
