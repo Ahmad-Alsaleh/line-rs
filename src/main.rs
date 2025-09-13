@@ -82,10 +82,10 @@ fn main() -> Result<()> {
     }
 
     let stdout = std::io::stdout().lock();
-    let mut output: Box<dyn OutputWriter> = if args.plain {
+    let mut output: Box<dyn OutputWriter> = if args.plain == 1 {
         Box::new(PlainOutputWriter(stdout))
-    } else if args.no_color {
-        Box::new(NotColoredOutputWriter(stdout))
+    // } else if args.no_color {
+    //     Box::new(NotColoredOutputWriter(stdout))
     } else {
         Box::new(ColoredOutputWriter(stdout))
     };
@@ -94,7 +94,7 @@ fn main() -> Result<()> {
     for line_selector in line_selectors {
         output
             .print_line_selector_header(&line_selector)
-            .context("Failed to output line")?;
+            .context("Failed to output header")?;
         match line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
                 let line_nums =
@@ -107,7 +107,9 @@ fn main() -> Result<()> {
                     } else {
                         Line::Context { line_num, line }
                     };
-                    output.print_line(line).context("Failed to output line")?;
+                    output
+                        .print_line(line)
+                        .with_context(|| format!("Failed to output line {}", line_num + 1))?;
                 }
             }
             ParsedLineSelector::Range(_start, _end, _step) => {
