@@ -1,5 +1,10 @@
-use crate::line_selector::ParsedLineSelector;
-use std::io::Write;
+use crate::{cli::When, line_selector::ParsedLineSelector};
+use std::io::{IsTerminal, Write};
+
+mod colored_and_decorated;
+mod colored_and_not_decorated;
+mod not_colored_decorated;
+mod not_colored_not_decorated;
 
 // TODO (FIXME): handle SIGPIPE, eg: `line -n=: large_file.txt | head -n1`
 
@@ -23,87 +28,21 @@ pub(crate) trait OutputWriter {
     ) -> anyhow::Result<()>;
 }
 
-/// No styles at all (no line numbers, headers, or colors)
-pub(crate) struct PlainOutputWriter<W: Write>(pub W);
-
-/// Line numbers and headers are displayed but without colors
-pub(crate) struct NotColoredOutputWriter<W: Write>(pub W);
-
-/// Full style (line numbers, headers, and colors)
-pub(crate) struct ColoredOutputWriter<W: Write>(pub W);
-
-impl<W: Write> OutputWriter for PlainOutputWriter<W> {
-    fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()> {
-        match line {
-            Line::Context { line_num: _, line } | Line::Selected { line_num: _, line } => {
-                self.0.write_all(line)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn print_line_selector_header(
-        &mut self,
-        _line_selector: &ParsedLineSelector,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-impl<W: Write> OutputWriter for NotColoredOutputWriter<W> {
-    fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()> {
-        match line {
-            Line::Context { line_num, line } | Line::Selected { line_num, line } => {
-                write!(self.0, "{line_num}: ", line_num = line_num + 1)?;
-                self.0.write_all(line)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    // TODO: print the raw selectors, not the parsed ones. the parsed ones are internal and
-    // shouldn't be user-facing. if the user selects `-n=-1` it'll be confusing to show the parsed
-    // selectors
-    fn print_line_selector_header(
-        &mut self,
-        line_selector: &ParsedLineSelector,
-    ) -> anyhow::Result<()> {
-        writeln!(self.0, "\nLine: {line_selector:?}")?;
-        Ok(())
-    }
-}
-
-impl<W: Write> OutputWriter for ColoredOutputWriter<W> {
-    fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()> {
-        match line {
-            Line::Context { line_num, line } => {
-                write!(self.0, "{BOLD}{line_num}:{CLEAR} ", line_num = line_num + 1)?;
-                self.0.write_all(line)?;
-            }
-            Line::Selected { line_num, line } => {
-                write!(
-                    self.0,
-                    "{GREEN_BOLD}{line_num}:{CLEAR} {RED}",
-                    line_num = line_num + 1
-                )?;
-                self.0.write_all(line)?;
-                write!(self.0, "{CLEAR}")?;
-            }
-        }
-
-        Ok(())
-    }
-
-    // TODO: print the raw selectors, not the parsed ones. the parsed ones are internal and
-    // shouldn't be user-facing. if the user selects `-n=-1` it'll be confusing to show the parsed
-    // selectors
-    fn print_line_selector_header(
-        &mut self,
-        line_selector: &ParsedLineSelector,
-    ) -> anyhow::Result<()> {
-        writeln!(self.0, "\n{BLUE_BOLD}Line: {line_selector:?}{CLEAR}")?;
-        Ok(())
+pub(crate) fn get_output_writer<W>(writer: W, color: When, plain: bool) -> Box<dyn OutputWriter>
+where
+    W: Write + IsTerminal + 'static,
+{
+    // TODO: respect env vars: https://bixense.com/clicolors/
+    // you can use: https://docs.rs/anstream/latest/anstream/struct.AutoStream.html
+    let color = match color {
+        When::Auto => writer.is_terminal(),
+        When::Always => true,
+        When::Never => false,
+    };
+    match (color, plain) {
+        (true, false) => Box::new(colored_and_decorated::Writer(writer)),
+        (true, true) => Box::new(colored_and_not_decorated::Writer(writer)),
+        (false, false) => Box::new(not_colored_decorated::Writer(writer)),
+        (false, true) => Box::new(not_colored_not_decorated::Writer(writer)),
     }
 }

@@ -44,11 +44,16 @@ pub(crate) struct Cli {
     #[arg(long, value_enum, help_heading = "Output", default_value_t = When::Auto)]
     pub(crate) paging: When,
 
-    /// Only show plain style, no decorations (e.g.: headers and line numbers).  When '-p' is used
-    /// twice, it also disables automatic paging. This option doesn't affect colors, you can use
-    /// `--color=never` to turn colored output off.
-    #[arg(short, long, help_heading = "Output", action = ArgAction::Count)]
-    pub(crate) plain: u8,
+    // /// Only show plain style, no decorations (e.g.: headers and line numbers).  When '-p' is used
+    // /// twice, it also disables automatic paging. This option doesn't affect colors, you can use
+    // /// `--color=never` to turn colored output off.
+    // #[arg(short, long, help_heading = "Output", action = ArgAction::Count)]
+    // pub(crate) plain: u8,
+
+    /// Only show plain style, no decorations (e.g.: headers and line numbers). This option doesn't
+    /// affect colors, you can use `--color=never` to turn colored output off.
+    #[arg(short, long, help_heading = "Output", action = ArgAction::SetTrue)]
+    pub(crate) plain: bool,
 
     /// Show N lines before each selected line
     #[arg(long, short, value_name = "N", default_value_t = 0, help_heading = "Context")]

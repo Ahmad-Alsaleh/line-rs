@@ -485,3 +485,67 @@ fn not_a_file() {
         .failure()
         .stderr(ends_with("not a file\n"));
 }
+
+#[test]
+fn color_works() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("2")
+        .arg("-a")
+        .arg("1")
+        .arg("--color=always")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout(format!(
+            "\n{BLUE_BOLD}Line: Single(1){CLEAR}\n{GREEN_BOLD}2:{CLEAR} {RED}two\n{CLEAR}{BOLD}3:{CLEAR} three\n"
+        ));
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("2")
+        .arg("-a")
+        .arg("1")
+        .arg("--color=never")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("\nLine: Single(1)\n2: two\n3: three\n");
+}
+
+#[test]
+fn plain_arg_works() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("2")
+        .arg("-a")
+        .arg("1")
+        .arg("-p")
+        .arg("--color=always")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout(format!("{RED}two\n{CLEAR}three\n"));
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n")
+        .arg("2")
+        .arg("-a")
+        .arg("1")
+        .arg("-p")
+        .arg("--color=never")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("two\nthree\n");
+}
