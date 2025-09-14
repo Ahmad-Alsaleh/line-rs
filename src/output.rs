@@ -28,14 +28,19 @@ pub(crate) trait OutputWriter {
     ) -> anyhow::Result<()>;
 }
 
-pub(crate) fn get_output_writer<W>(writer: W, color: When, plain: bool) -> Box<dyn OutputWriter>
+pub(crate) fn get_output_writer<W>(
+    writer: W,
+    color: When,
+    plain: bool,
+    is_terminal: bool,
+) -> Box<dyn OutputWriter>
 where
-    W: Write + IsTerminal + 'static,
+    W: Write + 'static,
 {
     // TODO: respect env vars: https://bixense.com/clicolors/
     // you can use: https://docs.rs/anstream/latest/anstream/struct.AutoStream.html
     let color = match color {
-        When::Auto => writer.is_terminal(),
+        When::Auto => is_terminal,
         When::Always => true,
         When::Never => false,
     };

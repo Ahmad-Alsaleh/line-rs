@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::collections::{HashMap, hash_map::Entry};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek};
+use std::io::{BufRead, BufReader, BufWriter, IsTerminal, Read, Seek};
 use std::path::Path;
 
 mod cli;
@@ -80,7 +80,9 @@ fn main() -> Result<()> {
     }
 
     let stdout = std::io::stdout().lock();
-    let mut output = output::get_output_writer(stdout, args.color, args.plain);
+    let is_terminal = stdout.is_terminal();
+    let stdout = BufWriter::new(stdout);
+    let mut output = output::get_output_writer(stdout, args.color, args.plain, is_terminal);
 
     // print selected lines
     for line_selector in line_selectors {
