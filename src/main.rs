@@ -103,45 +103,33 @@ fn main() -> Result<()> {
                 let step_abs = step.unsigned_abs();
 
                 // TODO: handel cases when args.before != args.after
-                let mut line_num = start;
+                let mut selected_line_num = start;
                 loop {
-                    // TODO: maybe `get_line_nums_with_context` can be used to get the context lines
-
-                    // print context lines (before)
-                    for line_num in line_num.saturating_sub(args.before)..line_num {
+                    let line_nums = get_line_num_with_context(
+                        selected_line_num,
+                        args.before,
+                        args.after,
+                        n_lines,
+                    );
+                    for line_num in line_nums {
+                        let line = &lines[&line_num];
+                        let line = if line_num == selected_line_num {
+                            Line::Selected { line_num, line }
+                        } else {
+                            Line::Context { line_num, line }
+                        };
                         output
-                            .print_line(Line::Context {
-                                line_num,
-                                line: &lines[&line_num],
-                            })
+                            .print_line(line)
                             .with_context(|| format!("Failed to output line {}", line_num + 1))?;
                     }
 
-                    // print the selected line
-                    output
-                        .print_line(Line::Selected {
-                            line_num,
-                            line: &lines[&line_num],
-                        })
-                        .with_context(|| format!("Failed to output line {}", line_num + 1))?;
-
-                    // print context lines (after)
-                    for line_num in (line_num + 1)..=(line_num + args.after).min(n_lines) {
-                        output
-                            .print_line(Line::Context {
-                                line_num,
-                                line: &lines[&line_num],
-                            })
-                            .with_context(|| format!("Failed to output line {}", line_num + 1))?;
-                    }
-
-                    if line_num == end {
+                    if selected_line_num == end {
                         break;
                     }
                     if args.context != 0 {
                         writeln!(output)?;
                     }
-                    update_fn(&mut line_num, step_abs);
+                    update_fn(&mut selected_line_num, step_abs);
                 }
             }
         }
