@@ -32,7 +32,7 @@ pub(crate) trait OutputWriter: Write {
 pub(crate) fn get_output_writer<W>(
     writer: W,
     color: When,
-    plain: bool,
+    plain: When,
     is_terminal: bool,
 ) -> Box<dyn OutputWriter>
 where
@@ -45,10 +45,15 @@ where
         When::Always => true,
         When::Never => false,
     };
-    match (color, plain) {
-        (true, false) => Box::new(colored_and_decorated::Writer(writer)),
-        (true, true) => Box::new(colored_and_not_decorated::Writer(writer)),
-        (false, false) => Box::new(not_colored_decorated::Writer(writer)),
-        (false, true) => Box::new(not_colored_not_decorated::Writer(writer)),
+    let decorated = match plain {
+        When::Auto => is_terminal,
+        When::Always => false,
+        When::Never => true,
+    };
+    match (color, decorated) {
+        (true, true) => Box::new(colored_and_decorated::Writer(writer)),
+        (true, false) => Box::new(colored_and_not_decorated::Writer(writer)),
+        (false, true) => Box::new(not_colored_decorated::Writer(writer)),
+        (false, false) => Box::new(not_colored_not_decorated::Writer(writer)),
     }
 }

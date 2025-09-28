@@ -1,5 +1,5 @@
 use crate::line_selector::RawLineSelector;
-use clap::{ArgAction, Parser, ValueEnum};
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 
 // TODO: consider using https://github.com/Canop/clap-help
@@ -40,20 +40,17 @@ pub(crate) struct Cli {
     // TODO: respect PAGING and LINE_PAGING env vars, and update the doc below
     /// Specify when to use paging. `auto` uses paging when an interactive terminal is detected and
     /// the output is too long, and off when a pipe is detected. `always` uses paging all the time,
-    /// even if a pipe is detected.
+    /// even if a pipe is detected. This option doesn't affect decorations (e.g.: headers and line
+    /// numbers), you can use `--plain=always` to turn decorations off.
     #[arg(long, value_enum, help_heading = "Output", default_value_t = When::Auto)]
     pub(crate) paging: When,
 
-    // /// Only show plain style, no decorations (e.g.: headers and line numbers).  When '-p' is used
-    // /// twice, it also disables automatic paging. This option doesn't affect colors, you can use
-    // /// `--color=never` to turn colored output off.
-    // #[arg(short, long, help_heading = "Output", action = ArgAction::Count)]
-    // pub(crate) plain: u8,
-
-    /// Only show plain style, no decorations (e.g.: headers and line numbers). This option doesn't
-    /// affect colors, you can use `--color=never` to turn colored output off.
-    #[arg(short, long, help_heading = "Output", action = ArgAction::SetTrue)]
-    pub(crate) plain: bool,
+    /// Specify when to turn off decorations (e.g.: headers and line numbers). `auto` turns
+    /// decorations off when a pipe is detected, and on when an interactive terminal is detected.
+    /// `always` turns decorations off all the time, even if a pipe is detected. This option
+    /// doesn't affect colors, you can use `--color=never` to turn colored output off.
+    #[arg(short, long, value_enum, help_heading = "Output", default_value_t = When::Auto)]
+    pub(crate) plain: When,
 
     /// Show N lines before each selected line
     #[arg(long, short, value_name = "N", default_value_t = 0, help_heading = "Context")]

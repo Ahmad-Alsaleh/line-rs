@@ -120,7 +120,7 @@ fn print_line_and_its_context(
     n_lines: usize,
     lines: &HashMap<usize, Vec<u8>>,
     output: &mut Box<dyn OutputWriter>,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     fn print_context_lines(
         context_line_nums: impl Iterator<Item = usize>,
         lines: &HashMap<usize, Vec<u8>>,
