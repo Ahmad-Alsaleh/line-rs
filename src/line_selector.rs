@@ -38,7 +38,7 @@ impl ParsedLineSelector {
     pub(crate) fn from_raw(raw: RawLineSelector, n_lines: usize) -> anyhow::Result<Self> {
         let to_positive_one_based = |num: isize| {
             if num.unsigned_abs() > n_lines {
-                anyhow::bail!("Line {num} is out of range (input has only {n_lines} line(s))");
+                anyhow::bail!("Line {num} is out of range (input has {n_lines} line(s) only)");
             }
 
             let num = if num < 0 {

@@ -147,7 +147,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
+        .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
 
     Command::cargo_bin(BIN_NAME)
         .unwrap()
@@ -155,7 +155,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 4:5\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
+        .stderr("Error: Invalid line selector: 4:5\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
 
     Command::cargo_bin(BIN_NAME)
         .unwrap()
@@ -163,7 +163,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 1:5\n\nCaused by:\n    Line 5 is out of range (input has only 3 line(s))\n");
+        .stderr("Error: Invalid line selector: 1:5\n\nCaused by:\n    Line 5 is out of range (input has 3 line(s) only)\n");
 
     Command::cargo_bin(BIN_NAME)
         .unwrap()
@@ -171,7 +171,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 4:5:2\n\nCaused by:\n    Line 4 is out of range (input has only 3 line(s))\n");
+        .stderr("Error: Invalid line selector: 4:5:2\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
 
     Command::cargo_bin(BIN_NAME)
         .unwrap()
@@ -179,7 +179,7 @@ fn line_too_large() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: 1:5:2\n\nCaused by:\n    Line 5 is out of range (input has only 3 line(s))\n");
+        .stderr("Error: Invalid line selector: 1:5:2\n\nCaused by:\n    Line 5 is out of range (input has 3 line(s) only)\n");
 }
 
 #[test]
@@ -193,7 +193,7 @@ fn line_too_small() {
         .arg(file.path())
         .assert()
         .failure()
-        .stderr("Error: Invalid line selector: -4\n\nCaused by:\n    Line -4 is out of range (input has only 3 line(s))\n");
+        .stderr("Error: Invalid line selector: -4\n\nCaused by:\n    Line -4 is out of range (input has 3 line(s) only)\n");
 }
 
 #[test]
