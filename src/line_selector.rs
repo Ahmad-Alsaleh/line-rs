@@ -106,25 +106,15 @@ impl ParsedLineSelector {
             }
         }
     }
-}
 
-impl Ord for ParsedLineSelector {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let a = match self {
-            ParsedLineSelector::Single(line_num) => line_num,
-            ParsedLineSelector::Range(start, end, _) => start.min(end),
-        };
-        let b = match other {
-            ParsedLineSelector::Single(line_num) => line_num,
-            ParsedLineSelector::Range(start, end, _) => start.min(end),
-        };
-        a.cmp(b)
-    }
-}
-
-impl PartialOrd for ParsedLineSelector {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    pub(crate) fn iter(&self) -> impl Iterator<Item = usize> {
+        match *self {
+            ParsedLineSelector::Single(line_num) => (line_num..=line_num).step_by(1),
+            ParsedLineSelector::Range(start, end, step) => {
+                let line_nums = if step > 0 { start..=end } else { end..=start };
+                line_nums.step_by(step.unsigned_abs())
+            }
+        }
     }
 }
 
