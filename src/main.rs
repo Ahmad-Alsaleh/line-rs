@@ -106,28 +106,58 @@ fn main() -> Result<()> {
                         .with_context(|| format!("Failed to output line {}", line_num + 1))?;
                 }
             }
-            ParsedLineSelector::Range(_start, _end, _step) => {
-                todo!()
-                // let update_fn = if step > 0 {
-                //     std::ops::AddAssign::add_assign
-                // } else {
-                //     std::ops::SubAssign::sub_assign
-                // };
-                //
-                // // TODO: print context lines
-                // let abs_step = step.unsigned_abs();
-                // let mut curr_line_num = start;
-                // loop {
-                //     let line = &lines[&curr_line_num];
-                //     let line = Line::Selected(line);
-                //     print_line(line, curr_line_num, &mut stdout)?;
-                //     if curr_line_num == end {
-                //         break;
-                //     }
-                //     update_fn(&mut curr_line_num, abs_step);
-                // }
+            ParsedLineSelector::Range(start, end, step) => {
+                let update_fn = if step > 0 {
+                    std::ops::AddAssign::add_assign
+                } else {
+                    std::ops::SubAssign::sub_assign
+                };
+
+                let step_abs = step.unsigned_abs();
+
+                // TODO: handel cases when args.before != args.after
+                let mut line_num = start;
+                loop {
+                    // TODO: maybe `get_line_nums_with_context` can be used to get the context lines
+
+                    // print context lines (before)
+                    for line_num in line_num.saturating_sub(args.before)..line_num {
+                        output
+                            .print_line(Line::Context {
+                                line_num,
+                                line: &lines[&line_num],
+                            })
+                            .with_context(|| format!("Failed to output line {}", line_num + 1))?;
+                    }
+
+                    // print the selected line
+                    output
+                        .print_line(Line::Selected {
+                            line_num,
+                            line: &lines[&line_num],
+                        })
+                        .with_context(|| format!("Failed to output line {}", line_num + 1))?;
+
+                    // print context lines (after)
+                    for line_num in (line_num + 1)..=(line_num + args.after).min(n_lines) {
+                        output
+                            .print_line(Line::Context {
+                                line_num,
+                                line: &lines[&line_num],
+                            })
+                            .with_context(|| format!("Failed to output line {}", line_num + 1))?;
+                    }
+
+                    if line_num == end {
+                        break;
+                    }
+
+                    writeln!(output)?;
+                    update_fn(&mut line_num, step_abs);
+                }
             }
         }
+        writeln!(output)?;
     }
 
     Ok(())
@@ -231,6 +261,7 @@ fn get_line_nums_with_context(
     after: usize,
     n_lines: usize,
 ) -> impl Iterator<Item = usize> {
+    debug_assert!(n_lines > 0); // ensures n_lines - 1 is safe
     let first_context_line = selected_line_num.saturating_sub(before);
     let last_context_line = selected_line_num.saturating_add(after).min(n_lines - 1);
     first_context_line..=last_context_line

@@ -1,5 +1,5 @@
 use crate::{cli::When, line_selector::ParsedLineSelector};
-use std::io::{IsTerminal, Write};
+use std::io::Write;
 
 mod colored_and_decorated;
 mod colored_and_not_decorated;
@@ -20,7 +20,7 @@ pub(crate) enum Line<'a> {
     Selected { line_num: usize, line: &'a [u8] },
 }
 
-pub(crate) trait OutputWriter {
+pub(crate) trait OutputWriter: Write {
     fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()>;
     fn print_line_selector_header(
         &mut self,
