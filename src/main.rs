@@ -1,7 +1,7 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
 use crate::line_selector::{ParsedLineSelector, RawLineSelector};
-use crate::output::Line;
+use crate::output::{Line, OutputWriter};
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::collections::HashMap;
@@ -34,15 +34,19 @@ fn main() -> Result<()> {
         args.after = args.context;
     }
 
-    // populate hash map with selected line numbers
+    // store the line numbers of all lines to be read (selected lines and context lines)
     let mut lines: HashMap<usize, Vec<u8>> = HashMap::new();
     for line_selector in &line_selectors {
-        for line_num in line_selector.iter() {
-            lines.entry(line_num).or_default();
+        for selected_line_num in line_selector.iter() {
+            let (first_context_line, last_context_line) =
+                get_context_lines_endpoints(selected_line_num, args.before, args.after, n_lines);
+            for line_num in first_context_line..=last_context_line {
+                lines.entry(line_num).or_default();
+            }
         }
     }
-    let mut sorted_line_nums: Box<[usize]> = lines.keys().copied().collect();
-    sorted_line_nums.sort_unstable();
+    let mut line_nums_to_read: Box<[usize]> = lines.keys().copied().collect();
+    line_nums_to_read.sort_unstable();
 
     // TODO: optimize this: when you have a range, say 4:10 with -c=2, you don't need an inner
     // loop, you can read the lines 4..=10 then read two lines before 4 and two lines after 10. no
@@ -52,18 +56,13 @@ fn main() -> Result<()> {
 
     // read selected lines
     let mut line_reader = LineReader::new(file);
-    for line_num in sorted_line_nums {
-        let line_num_with_context =
-            get_line_num_with_context(line_num, args.before, args.after, n_lines);
-
-        for line_num in line_num_with_context {
-            let line_buf = lines
-                .get_mut(&line_num)
-                .expect("we already inserted all line numbers into the hash map");
-            line_reader
-                .read_specific_line(line_buf, line_num)
-                .with_context(|| format!("Failed to read line number {}", line_num + 1))?;
-        }
+    for line_num in line_nums_to_read {
+        let line_buf = lines
+            .get_mut(&line_num)
+            .expect("we already inserted all line numbers into the hash map");
+        line_reader
+            .read_specific_line(line_buf, line_num)
+            .with_context(|| format!("Failed to read line number {}", line_num + 1))?;
     }
 
     // print selected lines
@@ -73,70 +72,88 @@ fn main() -> Result<()> {
     let mut output = output::get_output_writer(stdout, args.color, args.plain, is_terminal);
 
     for (i, line_selector) in line_selectors.iter().enumerate() {
+        if i != 0 {
+            writeln!(output)?;
+        }
         output
             .print_line_selector_header(line_selector)
             .context("Failed to output header")?;
-        match *line_selector {
-            ParsedLineSelector::Single(selected_line_num) => {
-                let line_nums =
-                    get_line_num_with_context(selected_line_num, args.before, args.after, n_lines);
 
-                for line_num in line_nums {
-                    let line = &lines[&line_num];
-                    let line = if line_num == selected_line_num {
-                        Line::Selected { line_num, line }
-                    } else {
-                        Line::Context { line_num, line }
-                    };
-                    output
-                        .print_line(line)
-                        .with_context(|| format!("Failed to output line {}", line_num + 1))?;
-                }
+        let (start, end, step) = match *line_selector {
+            ParsedLineSelector::Single(line_num) => (line_num, line_num, 1),
+            ParsedLineSelector::Range(start, end, step) => (start, end, step),
+        };
+
+        let update_fn = if step > 0 {
+            std::ops::AddAssign::add_assign
+        } else {
+            std::ops::SubAssign::sub_assign
+        };
+        let step_abs = step.unsigned_abs();
+
+        // TODO: handel cases when args.before != args.after
+        let mut selected_line_num = start;
+        loop {
+            print_line_and_its_context(
+                selected_line_num,
+                args.before,
+                args.after,
+                n_lines,
+                &lines,
+                &mut output,
+            )?;
+            if selected_line_num == end {
+                break;
             }
-            ParsedLineSelector::Range(start, end, step) => {
-                let update_fn = if step > 0 {
-                    std::ops::AddAssign::add_assign
-                } else {
-                    std::ops::SubAssign::sub_assign
-                };
-
-                let step_abs = step.unsigned_abs();
-
-                // TODO: handel cases when args.before != args.after
-                let mut selected_line_num = start;
-                loop {
-                    let line_nums = get_line_num_with_context(
-                        selected_line_num,
-                        args.before,
-                        args.after,
-                        n_lines,
-                    );
-                    for line_num in line_nums {
-                        let line = &lines[&line_num];
-                        let line = if line_num == selected_line_num {
-                            Line::Selected { line_num, line }
-                        } else {
-                            Line::Context { line_num, line }
-                        };
-                        output
-                            .print_line(line)
-                            .with_context(|| format!("Failed to output line {}", line_num + 1))?;
-                    }
-
-                    if selected_line_num == end {
-                        break;
-                    }
-                    if args.context != 0 {
-                        writeln!(output)?;
-                    }
-                    update_fn(&mut selected_line_num, step_abs);
-                }
+            if args.context != 0 {
+                writeln!(output)?;
             }
-        }
-        if i != line_selectors.len() - 1 {
-            writeln!(output)?;
+            update_fn(&mut selected_line_num, step_abs);
         }
     }
+
+    Ok(())
+}
+
+fn print_line_and_its_context(
+    selected_line_num: usize,
+    before: usize,
+    after: usize,
+    n_lines: usize,
+    lines: &HashMap<usize, Vec<u8>>,
+    output: &mut Box<dyn OutputWriter>,
+) -> Result<(), anyhow::Error> {
+    fn print_context_lines(
+        context_line_nums: impl Iterator<Item = usize>,
+        lines: &HashMap<usize, Vec<u8>>,
+        output: &mut Box<dyn OutputWriter>,
+    ) -> anyhow::Result<()> {
+        for line_num in context_line_nums {
+            let line = Line::Context {
+                line_num,
+                line: &lines[&line_num],
+            };
+            output
+                .print_line(line)
+                .with_context(|| format!("Failed to output line {}", line_num + 1))?;
+        }
+        Ok(())
+    }
+
+    let (context_before, context_after) =
+        get_context_lines(selected_line_num, before, after, n_lines);
+
+    print_context_lines(context_before, lines, output)?;
+
+    let line = Line::Selected {
+        line_num: selected_line_num,
+        line: &lines[&selected_line_num],
+    };
+    output
+        .print_line(line)
+        .with_context(|| format!("Failed to output line {}", selected_line_num + 1))?;
+
+    print_context_lines(context_after, lines, output)?;
 
     Ok(())
 }
@@ -204,17 +221,33 @@ fn bail_if_binrary(file: &mut BufReader<File>, path: &Path) -> anyhow::Result<()
     Ok(())
 }
 
-/// Returns `selected_line_num` along with its context line numbers, that is: all line numbers
-/// between `selected_line_num - before` and `selected_line_num + after`, capped between 0 and
-/// n_lines - 1.
-fn get_line_num_with_context(
+/// Returns the context lines before and after the `selected_line_num` as iterators, capped
+/// between 0 and n_lines - 1.
+fn get_context_lines(
     selected_line_num: usize,
     before: usize,
     after: usize,
     n_lines: usize,
-) -> impl Iterator<Item = usize> {
-    debug_assert!(n_lines > 0); // ensures n_lines - 1 doesn't panic
+) -> (impl Iterator<Item = usize>, impl Iterator<Item = usize>) {
+    let (first_context_line, last_context_line) =
+        get_context_lines_endpoints(selected_line_num, before, after, n_lines);
+
+    let before = first_context_line..selected_line_num;
+    let after = (selected_line_num + 1)..=last_context_line;
+
+    (before, after)
+}
+
+/// Returns the first and last context lines of `selected_line_num`, capped between 0 and
+/// n_lines - 1.
+fn get_context_lines_endpoints(
+    selected_line_num: usize,
+    before: usize,
+    after: usize,
+    n_lines: usize,
+) -> (usize, usize) {
+    debug_assert!(n_lines > 0); // ensures `n_lines - 1` doesn't panic/underflow
     let first_context_line = selected_line_num.saturating_sub(before);
     let last_context_line = selected_line_num.saturating_add(after).min(n_lines - 1);
-    first_context_line..=last_context_line
+    (first_context_line, last_context_line)
 }
