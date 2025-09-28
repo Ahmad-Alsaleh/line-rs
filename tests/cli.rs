@@ -137,31 +137,46 @@ fn no_read_permissions() {
 }
 
 #[test]
+fn single_selector_is_between_range_selector() {
+    let file = NamedTempFile::new("file").unwrap();
+    file.write_str("one\ntwo\nthree\nfour\nfive\n").unwrap();
+
+    Command::cargo_bin(BIN_NAME)
+        .unwrap()
+        .arg("-n=3:5:2,4")
+        .arg("-p")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout("three\nfive\nfour\n");
+}
+
+#[test]
 fn line_too_large() {
     let file = NamedTempFile::new("file").unwrap();
     file.write_str("one\ntwo\nthree").unwrap();
 
     Command::cargo_bin(BIN_NAME)
-        .unwrap()
-        .arg("-n=4")
-        .arg(file.path())
-        .assert()
-        .failure()
-        .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
+            .unwrap()
+            .arg("-n=4")
+            .arg(file.path())
+            .assert()
+            .failure()
+            .stderr("Error: Invalid line selector: 4\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
 
     Command::cargo_bin(BIN_NAME)
-        .unwrap()
-        .arg("-n=4:5")
-        .arg(file.path())
-        .assert()
-        .failure()
-        .stderr("Error: Invalid line selector: 4:5\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
+            .unwrap()
+            .arg("-n=4:5")
+            .arg(file.path())
+            .assert()
+            .failure()
+            .stderr("Error: Invalid line selector: 4:5\n\nCaused by:\n    Line 4 is out of range (input has 3 line(s) only)\n");
 
     Command::cargo_bin(BIN_NAME)
-        .unwrap()
-        .arg("-n=1:5")
-        .arg(file.path())
-        .assert()
+            .unwrap()
+            .arg("-n=1:5")
+            .arg(file.path())
+            .assert()
         .failure()
         .stderr("Error: Invalid line selector: 1:5\n\nCaused by:\n    Line 5 is out of range (input has 3 line(s) only)\n");
 
@@ -265,9 +280,7 @@ fn without_plain_flag() {
         .arg(file.path())
         .assert()
         .success()
-        .stdout(format!(
-            "{BLUE_BOLD}Line: Single(0){CLEAR}\n{GREEN_BOLD}1:{CLEAR} {RED}one\n{CLEAR}"
-        ));
+        .stdout("Line: Single(0)\n1: one\n");
 }
 
 #[test]
@@ -325,6 +338,7 @@ fn ranges_with_single_lines() {
         .arg("-n")
         .arg("1,1:3,1:1")
         .arg("--plain")
+        .arg("--color=never")
         .arg(file.path())
         .assert()
         .success()
@@ -502,7 +516,7 @@ fn color_works() {
         .assert()
         .success()
         .stdout(format!(
-            "\n{BLUE_BOLD}Line: Single(1){CLEAR}\n{GREEN_BOLD}2:{CLEAR} {RED}two\n{CLEAR}{BOLD}3:{CLEAR} three\n"
+            "{BLUE_BOLD}Line: Single(1){CLEAR}\n{GREEN_BOLD}2:{CLEAR} {RED}two\n{CLEAR}{BOLD}3:{CLEAR} three\n"
         ));
 
     Command::cargo_bin(BIN_NAME)
@@ -515,7 +529,7 @@ fn color_works() {
         .arg(file.path())
         .assert()
         .success()
-        .stdout("\nLine: Single(1)\n2: two\n3: three\n");
+        .stdout("Line: Single(1)\n2: two\n3: three\n");
 }
 
 #[test]
