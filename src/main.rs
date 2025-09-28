@@ -90,7 +90,6 @@ fn main() -> Result<()> {
         };
         let step_abs = step.unsigned_abs();
 
-        // TODO: handel cases when args.before != args.after
         let mut selected_line_num = start;
         loop {
             print_line_and_its_context(
@@ -104,7 +103,7 @@ fn main() -> Result<()> {
             if selected_line_num == end {
                 break;
             }
-            if args.context != 0 {
+            if args.after != 0 || args.before != 0 {
                 writeln!(output)?;
             }
             update_fn(&mut selected_line_num, step_abs);
