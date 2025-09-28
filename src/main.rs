@@ -1,6 +1,6 @@
 use crate::cli::Cli;
 use crate::line_reader::LineReader;
-use crate::line_selector::{ParsedLineSelector, RawLineSelector};
+use crate::line_selector::{LineSelector, ParsedLineSelector, RawLineSelector};
 use crate::output::{Line, OutputWriter};
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
             .context("Failed to output header")?;
         is_first = false;
 
-        let (start, end, step) = match line_selector {
+        let (start, end, step) = match line_selector.parsed {
             ParsedLineSelector::Single(line_num) => (line_num, line_num, 1),
             ParsedLineSelector::Range(start, end, step) => (start, end, step),
         };
@@ -157,16 +157,21 @@ fn print_line_and_its_context(
     Ok(())
 }
 
-/// Parses a slice of `RawLineSelector` into a slice of `ParsedLineSelector`
+/// Parses a slice of `RawLineSelector`s into a slice of `LineSelector`
 fn parse_line_selectors(
     raw_line_selectors: &[RawLineSelector],
     n_lines: usize,
-) -> anyhow::Result<Box<[ParsedLineSelector]>> {
+) -> anyhow::Result<Box<[LineSelector]>> {
     raw_line_selectors
         .iter()
         .map(|&raw_line_selector| {
-            ParsedLineSelector::from_raw(raw_line_selector, n_lines)
-                .with_context(|| format!("Invalid line selector: {raw_line_selector}"))
+            let parsed_line_selector = ParsedLineSelector::from_raw(raw_line_selector, n_lines)
+                .with_context(|| format!("Invalid line selector: {raw_line_selector}"))?;
+
+            Ok(LineSelector {
+                parsed: parsed_line_selector,
+                raw: raw_line_selector,
+            })
         })
         .collect()
 }

@@ -1,6 +1,27 @@
 use anyhow::Context;
 use std::fmt::{Debug, Display};
 
+pub(crate) struct LineSelector {
+    pub(crate) parsed: ParsedLineSelector,
+    pub(crate) raw: RawLineSelector,
+}
+
+impl LineSelector {
+    /// Returns an iterator over the parsed line selector.
+    ///
+    /// The iterator yields all items in ascending order, even if step is negative. That is,
+    /// `4:8:2` and `8:4:-2` will both produce the values `4, 6, 8` in this order.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = usize> {
+        match self.parsed {
+            ParsedLineSelector::Single(line_num) => (line_num..=line_num).step_by(1),
+            ParsedLineSelector::Range(start, end, step) => {
+                let line_nums = if step > 0 { start..=end } else { end..=start };
+                line_nums.step_by(step.unsigned_abs())
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ParsedLineSelector {
     /// Single line number (zero-based)
@@ -103,46 +124,6 @@ impl ParsedLineSelector {
                         Ok(Self::Range(start, end, step))
                     }
                 }
-            }
-        }
-    }
-
-    /// Returns an iterator over the line selector.
-    ///
-    /// The iterator yields all items in ascending order, even if step is negative.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// // single line selector
-    /// let line_selector = ParsedLineSelector::Single(3);
-    /// let mut iterator = line_selector.iter();
-    /// assert_eq!(iterator.next(), Some(3));
-    /// assert_eq!(iterator.next(), None);
-    ///
-    /// // ranged line selector, step is positive
-    /// let line_selector = ParsedLineSelector::Range(1, 5, 2);
-    /// let mut iterator = line_selector.iter();
-    /// assert_eq!(iterator.next(), Some(1));
-    /// assert_eq!(iterator.next(), Some(3));
-    /// assert_eq!(iterator.next(), Some(5));
-    /// assert_eq!(iterator.next(), None);
-    ///
-    /// // ranged line selector, step is negative, note that the
-    /// // order of lines is the same as when the step is positive
-    /// let line_selector = ParsedLineSelector::Range(5, 1, -2);
-    /// let mut iterator = line_selector.iter();
-    /// assert_eq!(iterator.next(), Some(1));
-    /// assert_eq!(iterator.next(), Some(3));
-    /// assert_eq!(iterator.next(), Some(15));
-    /// assert_eq!(iterator.next(), None);
-    /// ```
-    pub(crate) fn iter(&self) -> impl Iterator<Item = usize> {
-        match *self {
-            ParsedLineSelector::Single(line_num) => (line_num..=line_num).step_by(1),
-            ParsedLineSelector::Range(start, end, step) => {
-                let line_nums = if step > 0 { start..=end } else { end..=start };
-                line_nums.step_by(step.unsigned_abs())
             }
         }
     }

@@ -1,4 +1,4 @@
-use crate::line_selector::ParsedLineSelector;
+use crate::line_selector::{LineSelector, RawLineSelector};
 use crate::output::{BLUE_BOLD, BOLD, CLEAR, GREEN_BOLD, Line, OutputWriter, RED};
 use std::io::Write;
 
@@ -36,18 +36,20 @@ impl<W: Write> OutputWriter for Writer<W> {
         Ok(())
     }
 
-    // TODO: print the raw selectors, not the parsed ones. the parsed ones are internal and
-    // shouldn't be user-facing. if the user selects `-n=-1` it'll be confusing to show the parsed
-    // selectors
     fn print_line_selector_header(
         &mut self,
-        line_selector: &ParsedLineSelector,
+        line_selector: &LineSelector,
         first_line: bool,
     ) -> anyhow::Result<()> {
         if !first_line {
             writeln!(self)?;
         }
-        writeln!(self, "{BLUE_BOLD}Line: {line_selector:?}{CLEAR}")?;
+        let prefix = match line_selector.raw {
+            RawLineSelector::Single(_) => "Line",
+            RawLineSelector::Range(..) => "Lines",
+            RawLineSelector::RangeWithStep(..) => "Lines",
+        };
+        writeln!(self, "{BLUE_BOLD}{prefix}: {}{CLEAR}", line_selector.raw)?;
         Ok(())
     }
 }

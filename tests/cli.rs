@@ -280,7 +280,7 @@ fn without_plain_flag() {
         .arg(file.path())
         .assert()
         .success()
-        .stdout("Line: Single(0)\n1: one\n");
+        .stdout("Line: -3\n1: one\n");
 }
 
 #[test]
@@ -516,7 +516,7 @@ fn color_works() {
         .assert()
         .success()
         .stdout(format!(
-            "{BLUE_BOLD}Line: Single(1){CLEAR}\n{GREEN_BOLD}2:{CLEAR} {RED}two\n{CLEAR}{BOLD}3:{CLEAR} three\n"
+            "{BLUE_BOLD}Line: 2{CLEAR}\n{GREEN_BOLD}2:{CLEAR} {RED}two\n{CLEAR}{BOLD}3:{CLEAR} three\n"
         ));
 
     Command::cargo_bin(BIN_NAME)
@@ -529,7 +529,7 @@ fn color_works() {
         .arg(file.path())
         .assert()
         .success()
-        .stdout("Line: Single(1)\n2: two\n3: three\n");
+        .stdout("Line: 2\n2: two\n3: three\n");
 }
 
 #[test]

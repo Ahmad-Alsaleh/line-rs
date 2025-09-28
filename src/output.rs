@@ -1,4 +1,4 @@
-use crate::{cli::When, line_selector::ParsedLineSelector};
+use crate::{cli::When, line_selector::LineSelector};
 use std::io::Write;
 
 mod colored_and_decorated;
@@ -24,7 +24,7 @@ pub(crate) trait OutputWriter: Write {
     fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()>;
     fn print_line_selector_header(
         &mut self,
-        line_selector: &ParsedLineSelector,
+        line_selector: &LineSelector,
         first_line: bool,
     ) -> anyhow::Result<()>;
 }

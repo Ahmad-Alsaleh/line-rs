@@ -1,4 +1,4 @@
-use crate::line_selector::ParsedLineSelector;
+use crate::line_selector::LineSelector;
 use crate::output::{CLEAR, Line, OutputWriter, RED};
 use std::io::Write;
 
@@ -32,7 +32,7 @@ impl<W: Write> OutputWriter for Writer<W> {
 
     fn print_line_selector_header(
         &mut self,
-        _line_selector: &ParsedLineSelector,
+        _line_selector: &LineSelector,
         _first_line: bool,
     ) -> anyhow::Result<()> {
         Ok(())
