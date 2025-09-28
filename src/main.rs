@@ -85,11 +85,11 @@ fn main() -> Result<()> {
     let mut output = output::get_output_writer(stdout, args.color, args.plain, is_terminal);
 
     // print selected lines
-    for line_selector in line_selectors {
+    for (i, line_selector) in line_selectors.iter().enumerate() {
         output
-            .print_line_selector_header(&line_selector)
+            .print_line_selector_header(line_selector)
             .context("Failed to output header")?;
-        match line_selector {
+        match *line_selector {
             ParsedLineSelector::Single(selected_line_num) => {
                 let line_nums =
                     get_line_nums_with_context(selected_line_num, args.before, args.after, n_lines);
@@ -158,7 +158,9 @@ fn main() -> Result<()> {
                 }
             }
         }
-        writeln!(output)?;
+        if i != line_selectors.len() - 1 {
+            writeln!(output)?;
+        }
     }
 
     Ok(())
