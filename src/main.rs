@@ -151,8 +151,9 @@ fn main() -> Result<()> {
                     if line_num == end {
                         break;
                     }
-
-                    writeln!(output)?;
+                    if args.context != 0 {
+                        writeln!(output)?;
+                    }
                     update_fn(&mut line_num, step_abs);
                 }
             }
