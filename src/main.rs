@@ -71,15 +71,14 @@ fn main() -> Result<()> {
     let stdout = BufWriter::new(stdout);
     let mut output = output::get_output_writer(stdout, args.color, args.plain, is_terminal);
 
-    for (i, line_selector) in line_selectors.iter().enumerate() {
-        if i != 0 {
-            writeln!(output)?;
-        }
+    let mut is_first = true;
+    for line_selector in line_selectors {
         output
-            .print_line_selector_header(line_selector)
+            .print_line_selector_header(&line_selector, is_first)
             .context("Failed to output header")?;
+        is_first = false;
 
-        let (start, end, step) = match *line_selector {
+        let (start, end, step) = match line_selector {
             ParsedLineSelector::Single(line_num) => (line_num, line_num, 1),
             ParsedLineSelector::Range(start, end, step) => (start, end, step),
         };

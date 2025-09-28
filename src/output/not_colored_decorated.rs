@@ -18,8 +18,8 @@ impl<W: Write> OutputWriter for Writer<W> {
     fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()> {
         match line {
             Line::Context { line_num, line } | Line::Selected { line_num, line } => {
-                write!(self.0, "{line_num}: ", line_num = line_num + 1)?;
-                self.0.write_all(line)?;
+                write!(self, "{line_num}: ", line_num = line_num + 1)?;
+                self.write_all(line)?;
             }
         }
 
@@ -32,8 +32,12 @@ impl<W: Write> OutputWriter for Writer<W> {
     fn print_line_selector_header(
         &mut self,
         line_selector: &ParsedLineSelector,
+        first_line: bool,
     ) -> anyhow::Result<()> {
-        writeln!(self.0, "Line: {line_selector:?}")?;
+        if !first_line {
+            writeln!(self)?;
+        }
+        writeln!(self, "Line: {line_selector:?}")?;
         Ok(())
     }
 }

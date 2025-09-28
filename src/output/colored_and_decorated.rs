@@ -19,17 +19,17 @@ impl<W: Write> OutputWriter for Writer<W> {
     fn print_line(&mut self, line: Line<'_>) -> anyhow::Result<()> {
         match line {
             Line::Context { line_num, line } => {
-                write!(self.0, "{BOLD}{line_num}:{CLEAR} ", line_num = line_num + 1)?;
-                self.0.write_all(line)?;
+                write!(self, "{BOLD}{line_num}:{CLEAR} ", line_num = line_num + 1)?;
+                self.write_all(line)?;
             }
             Line::Selected { line_num, line } => {
                 write!(
-                    self.0,
+                    self,
                     "{GREEN_BOLD}{line_num}:{CLEAR} {RED}",
                     line_num = line_num + 1
                 )?;
-                self.0.write_all(line)?;
-                write!(self.0, "{CLEAR}")?;
+                self.write_all(line)?;
+                write!(self, "{CLEAR}")?;
             }
         }
 
@@ -42,8 +42,12 @@ impl<W: Write> OutputWriter for Writer<W> {
     fn print_line_selector_header(
         &mut self,
         line_selector: &ParsedLineSelector,
+        first_line: bool,
     ) -> anyhow::Result<()> {
-        writeln!(self.0, "{BLUE_BOLD}Line: {line_selector:?}{CLEAR}")?;
+        if !first_line {
+            writeln!(self)?;
+        }
+        writeln!(self, "{BLUE_BOLD}Line: {line_selector:?}{CLEAR}")?;
         Ok(())
     }
 }
