@@ -44,13 +44,13 @@ You can also combine the above! The command bellow selects the line `2` and the 
         line -n=-1
         ```
 
-    - From line 3 up to the 2 line from the end:
+    - From line 3 up to the 2nd line from the end:
         ```sh
         line -n=3:-2
         ```
 
 - Unbounded Ranges:
-    - From line 3 up to the end of the file:
+    - From line 3 up to the end of the file, effectively skipping the first two lines of the file:
         ```sh
         line -n=3:
         ```
@@ -65,15 +65,15 @@ You can also combine the above! The command bellow selects the line `2` and the 
         line -n=:
         ```
 - Steps:
-    - From line 3 up to 9, jumping two lines at a time: 
+    - From line 3 up to 7, jumping two lines at a time: 
         ```sh
         line -n=3:7:2 # 3, 5, 7
         ```
-    - From line 9 up to 3, jumping backwards:
+    - From line 5 up to 3, jumping backwards:
     ```sh
     line -n=5:3:-1 # 5, 4, 3
     ```
-    - Reverse all lines:
+    - All lines, jumping backwards, effectively reversing all lines:
     ```sh
     line -n=::-1
     ```
@@ -100,7 +100,7 @@ The output can be serialized as JSON, useful for piping and scripts
 
 ```sh
 line -n=2,4 --json # one line, useful for piping
-line -n=2,4 --pretty-json
+line -n=2,4 --pretty-json # multiple lines with indentation, useful for readability
 ```
 
 Output:
@@ -139,8 +139,6 @@ Output
 
 ### Using Cargo
 
-### Using pip
-
 ### Using apt
 
 ### Using brew
@@ -150,6 +148,8 @@ Output
 > More about that soon
 
 ## Examples
+
+> Check the features section for more examples
 
 ```sh
 # Print line 5
@@ -162,14 +162,14 @@ line -n=3:7 notes.txt
 line -n=2,4,6 notes.txt
 
 # Print line 1 from stdin
-echo -e "a\nb\nc" | line -n=1 -
+echo -e "a\nb\nc" | line -n=1 - # the trailing hyphen is optional
 ```
 
 ---
 
 ## Motivation
 
-This tool simplifies extracting lines from a file or stream without relying on brittle chains like:
+This tool simplifies extracting lines from a file without relying on brittle chains like:
 
 ```sh
 cat file.txt | head -n=4 | tail -n=1
